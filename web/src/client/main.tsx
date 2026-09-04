@@ -199,6 +199,7 @@ function PokerTable({ room, heroId, legal, muted, api, onRoom }: { room: ClientR
   const [chat, setChat] = useState("");
   const [chatOpen, setChatOpen] = useState(localStorage.getItem("texomaha_chat_open") !== "false");
   const [chatError, setChatError] = useState("");
+  const portraitTable = usePortraitTable();
   const heroIndex = room.players.findIndex((player) => player.userId === heroId);
   const visualPlayers = heroIndex >= 0 ? [...room.players.slice(heroIndex), ...room.players.slice(0, heroIndex)] : room.players;
   const pot = room.players.reduce((sum, player) => sum + player.totalCommitted, 0);
@@ -233,7 +234,7 @@ function PokerTable({ room, heroId, legal, muted, api, onRoom }: { room: ClientR
   return (
     <div className="tableLayout">
       <div className="felt">
-        {visualPlayers.map((player, index) => <PlayerSeat key={player.userId} player={player} active={room.hand?.actingSeat === player.seat} hero={player.userId === heroId} cards={player.userId === heroId ? room.hand?.heroCards : room.hand?.shownCards[player.userId]} index={index} count={visualPlayers.length} />)}
+        {visualPlayers.map((player, index) => <PlayerSeat key={player.userId} player={player} active={room.hand?.actingSeat === player.seat} hero={player.userId === heroId} portraitTable={portraitTable} cards={player.userId === heroId ? room.hand?.heroCards : room.hand?.shownCards[player.userId]} index={index} count={visualPlayers.length} />)}
         <div className="board">
           <div className="pot">Pot {pot}</div>
           <div className="cards">{[0, 1, 2, 3, 4].map((index) => <CardView key={index} card={room.hand?.communityCards[index]} />)}</div>
@@ -270,9 +271,11 @@ function PokerTable({ room, heroId, legal, muted, api, onRoom }: { room: ClientR
   );
 }
 
-function PlayerSeat({ player, active, hero, cards, index, count }: { player: { username: string; avatar: string; stack: number; currentBet: number; folded: boolean; allIn: boolean; connected: boolean }; active: boolean; hero: boolean; cards?: string[]; index: number; count: number }) {
+function PlayerSeat({ player, active, hero, portraitTable, cards, index, count }: { player: { username: string; avatar: string; stack: number; currentBet: number; folded: boolean; allIn: boolean; connected: boolean }; active: boolean; hero: boolean; portraitTable: boolean; cards?: string[]; index: number; count: number }) {
   const angle = Math.PI / 2 + (Math.PI * 2 * index) / count;
-  const style = { left: `${50 + Math.cos(angle) * 43}%`, top: `${50 + Math.sin(angle) * 36}%` };
+  const xRadius = portraitTable ? 35 : 43;
+  const yRadius = portraitTable ? 43 : 36;
+  const style = { left: `${50 + Math.cos(angle) * xRadius}%`, top: `${50 + Math.sin(angle) * yRadius}%` };
   return <div className={`playerSeat ${active ? "active" : ""} ${hero ? "heroSeat" : ""}`} style={style}><div className="avatar">{player.avatar}</div><strong>{player.username}</strong><span>{player.stack} chips</span><small>{active && hero ? "YOUR TURN" : player.folded ? "Folded" : player.allIn ? "All in" : player.connected ? "Online" : "Reconnecting"}</small><div className="miniCards">{(cards ?? ["", ""]).map((card, cardIndex) => <CardView key={cardIndex} card={card} hidden={!card} />)}</div>{player.currentBet > 0 && <b className="bet">{player.currentBet}</b>}</div>;
 }
 
@@ -287,6 +290,18 @@ function Empty({ text, action, onClick }: { text: string; action: string; onClic
 
 function Status({ status }: { status: string }) {
   return <i className={`dot ${status}`} />;
+}
+
+function usePortraitTable() {
+  const [portraitTable, setPortraitTable] = useState(() => window.matchMedia("(max-width: 600px) and (orientation: portrait)").matches);
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 600px) and (orientation: portrait)");
+    const update = () => setPortraitTable(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+  return portraitTable;
 }
 
 function getClientLegal(room: ClientRoomView, userId: string): LegalActions | null {
