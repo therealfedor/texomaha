@@ -197,6 +197,8 @@ function WaitingRoom({ room, api, lobby, onRoom, inviteUrl, onCopyInvite }: { ro
 function PokerTable({ room, heroId, legal, muted, api, onRoom }: { room: ClientRoomView; heroId: string; legal: LegalActions | null; muted: boolean; api: Api; onRoom: (room: ClientRoomView) => void }) {
   const [amount, setAmount] = useState(legal?.minRaiseTo || legal?.minBet || 20);
   const [chat, setChat] = useState("");
+  const heroIndex = room.players.findIndex((player) => player.userId === heroId);
+  const visualPlayers = heroIndex >= 0 ? [...room.players.slice(heroIndex), ...room.players.slice(0, heroIndex)] : room.players;
   const pot = room.players.reduce((sum, player) => sum + player.totalCommitted, 0);
   const minWager = legal ? Math.min(legal.maxAmount, Math.max(legal.minBet, legal.minRaiseTo)) : 0;
   const wagerAmount = Math.min(Math.max(amount, minWager), legal?.maxAmount ?? amount);
@@ -211,7 +213,7 @@ function PokerTable({ room, heroId, legal, muted, api, onRoom }: { room: ClientR
   return (
     <div className="tableLayout">
       <div className="felt">
-        {room.players.map((player, index) => <PlayerSeat key={player.userId} player={player} active={room.hand?.actingSeat === player.seat} cards={player.userId === heroId ? room.hand?.heroCards : room.hand?.shownCards[player.userId]} index={index} count={room.players.length} />)}
+        {visualPlayers.map((player, index) => <PlayerSeat key={player.userId} player={player} active={room.hand?.actingSeat === player.seat} hero={player.userId === heroId} cards={player.userId === heroId ? room.hand?.heroCards : room.hand?.shownCards[player.userId]} index={index} count={visualPlayers.length} />)}
         <div className="board">
           <div className="pot">Pot {pot}</div>
           <div className="cards">{[0, 1, 2, 3, 4].map((index) => <CardView key={index} card={room.hand?.communityCards[index]} />)}</div>
@@ -239,10 +241,10 @@ function PokerTable({ room, heroId, legal, muted, api, onRoom }: { room: ClientR
   );
 }
 
-function PlayerSeat({ player, active, cards, index, count }: { player: { username: string; avatar: string; stack: number; currentBet: number; folded: boolean; allIn: boolean; connected: boolean }; active: boolean; cards?: string[]; index: number; count: number }) {
-  const angle = (Math.PI * 2 * index) / count - Math.PI / 2;
-  const style = { left: `${50 + Math.cos(angle) * 42}%`, top: `${50 + Math.sin(angle) * 38}%` };
-  return <div className={`playerSeat ${active ? "active" : ""}`} style={style}><div className="avatar">{player.avatar}</div><strong>{player.username}</strong><span>{player.stack} chips</span><small>{player.folded ? "Folded" : player.allIn ? "All in" : player.connected ? "Online" : "Reconnecting"}</small><div className="miniCards">{(cards ?? ["", ""]).map((card, cardIndex) => <CardView key={cardIndex} card={card} hidden={!card} />)}</div>{player.currentBet > 0 && <b className="bet">{player.currentBet}</b>}</div>;
+function PlayerSeat({ player, active, hero, cards, index, count }: { player: { username: string; avatar: string; stack: number; currentBet: number; folded: boolean; allIn: boolean; connected: boolean }; active: boolean; hero: boolean; cards?: string[]; index: number; count: number }) {
+  const angle = Math.PI / 2 + (Math.PI * 2 * index) / count;
+  const style = { left: `${50 + Math.cos(angle) * 43}%`, top: `${50 + Math.sin(angle) * 36}%` };
+  return <div className={`playerSeat ${active ? "active" : ""} ${hero ? "heroSeat" : ""}`} style={style}><div className="avatar">{player.avatar}</div><strong>{player.username}</strong><span>{player.stack} chips</span><small>{active && hero ? "YOUR TURN" : player.folded ? "Folded" : player.allIn ? "All in" : player.connected ? "Online" : "Reconnecting"}</small><div className="miniCards">{(cards ?? ["", ""]).map((card, cardIndex) => <CardView key={cardIndex} card={card} hidden={!card} />)}</div>{player.currentBet > 0 && <b className="bet">{player.currentBet}</b>}</div>;
 }
 
 function CardView({ card, hidden = false }: { card?: string; hidden?: boolean }) {
