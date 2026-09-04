@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>TexomahaWebAppURL</key>
-	<string>http://192.168.1.10:4173</string>
+	<string>https://texomaha.onrender.com</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Texomaha connects to your local development server so you can test multiplayer games on this device.</string>
 	<key>NSAppTransportSecurity</key>
