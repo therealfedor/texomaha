@@ -143,7 +143,7 @@ app.post("/api/rooms/:id/chat", (request, response) => {
   room.chat.push({ id: uuid(), roomId: room.id, userId: user.id, username: user.username, message, createdAt: Date.now() });
   persist();
   emitRoom(room.id);
-  response.json({ ok: true });
+  response.json({ room: clientRoomView(room, user.id) });
 });
 
 io.use((socket, next) => {

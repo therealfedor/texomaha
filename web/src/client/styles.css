@@ -79,8 +79,16 @@ h1 { letter-spacing: 0; }
 .playerSeat .card span { font-size: 14px; }
 .bet { position: absolute; bottom: -16px; background: #d6ad51; color: #18130a; border-radius: 999px; padding: 4px 10px; }
 .side { padding: 14px; overflow: auto; }
+.sideHeader { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.sideHeader h2 { margin-bottom: 0; }
+.chatClosed { align-self: start; }
 .history, .chat { max-height: 230px; overflow: auto; color: #c7d0cb; }
 .history p, .chat p { margin: 0 0 7px; }
+.chatPanel { display: grid; gap: 10px; margin-top: 14px; }
+.chatPanel h2 { margin-bottom: 0; }
+.chatError { border: 1px solid #9e3f3f; border-radius: 6px; padding: 8px 10px; background: rgba(124, 45, 45, .22); color: #ffd8d8; font-size: 13px; }
+.chatForm { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.chatForm button { min-width: 68px; }
 .controls { grid-column: 1 / -1; min-height: 86px; padding: 14px; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 10px; }
 .controls input[type="range"] { width: 220px; }
 .controls input[type="number"] { width: 110px; }

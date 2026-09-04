@@ -197,6 +197,8 @@ function WaitingRoom({ room, api, lobby, onRoom, inviteUrl, onCopyInvite }: { ro
 function PokerTable({ room, heroId, legal, muted, api, onRoom }: { room: ClientRoomView; heroId: string; legal: LegalActions | null; muted: boolean; api: Api; onRoom: (room: ClientRoomView) => void }) {
   const [amount, setAmount] = useState(legal?.minRaiseTo || legal?.minBet || 20);
   const [chat, setChat] = useState("");
+  const [chatOpen, setChatOpen] = useState(localStorage.getItem("texomaha_chat_open") !== "false");
+  const [chatError, setChatError] = useState("");
   const heroIndex = room.players.findIndex((player) => player.userId === heroId);
   const visualPlayers = heroIndex >= 0 ? [...room.players.slice(heroIndex), ...room.players.slice(0, heroIndex)] : room.players;
   const pot = room.players.reduce((sum, player) => sum + player.totalCommitted, 0);
@@ -210,6 +212,24 @@ function PokerTable({ room, heroId, legal, muted, api, onRoom }: { room: ClientR
     playSound(type, muted);
     onRoom(data.room);
   }
+  async function sendChat(event: React.FormEvent) {
+    event.preventDefault();
+    const message = chat.trim();
+    if (!message) return;
+    setChatError("");
+    try {
+      const data = await api.post(`/api/rooms/${room.id}/chat`, { message }, { silent: true });
+      setChat("");
+      onRoom(data.room);
+    } catch (error) {
+      setChatError(error instanceof Error ? error.message : "Unable to send chat.");
+    }
+  }
+  function toggleChat() {
+    const next = !chatOpen;
+    setChatOpen(next);
+    localStorage.setItem("texomaha_chat_open", String(next));
+  }
   return (
     <div className="tableLayout">
       <div className="felt">
@@ -221,7 +241,16 @@ function PokerTable({ room, heroId, legal, muted, api, onRoom }: { room: ClientR
           {room.hand?.winners.map((winner) => <div className="winner" key={`${winner.userId}-${winner.amount}`}>{room.players.find((player) => player.userId === winner.userId)?.username} won {winner.amount} · {winner.label}</div>)}
         </div>
       </div>
-      <aside className="side panel"><h2>Hand #{room.hand?.handNumber}</h2><div className="history">{room.hand?.history.slice(-16).map((line, index) => <p key={index}>{line}</p>)}</div><h2>Chat</h2><div className="chat">{room.chat.slice(-20).map((message) => <p key={message.id}><strong>{message.username}</strong>: {message.message}</p>)}</div><form onSubmit={async (event) => { event.preventDefault(); await api.post(`/api/rooms/${room.id}/chat`, { message: chat }); setChat(""); }}><input value={chat} onChange={(event) => setChat(event.target.value)} maxLength={240} placeholder="Message" /></form></aside>
+      <aside className={`side panel ${chatOpen ? "" : "chatClosed"}`}>
+        <div className="sideHeader"><h2>Hand #{room.hand?.handNumber}</h2><button type="button" onClick={toggleChat}>{chatOpen ? "Hide Chat" : "Show Chat"}</button></div>
+        <div className="history">{room.hand?.history.slice(-16).map((line, index) => <p key={index}>{line}</p>)}</div>
+        {chatOpen && <div className="chatPanel">
+          <h2>Chat</h2>
+          <div className="chat">{room.chat.slice(-20).map((message) => <p key={message.id}><strong>{message.username}</strong>: {message.message}</p>)}</div>
+          {chatError && <div className="chatError" role="alert">{chatError}</div>}
+          <form className="chatForm" onSubmit={sendChat}><input value={chat} onChange={(event) => setChat(event.target.value)} maxLength={240} placeholder="Message" autoComplete="off" /><button disabled={!chat.trim()}>Send</button></form>
+        </div>}
+      </aside>
       <div className="controls panel">
         {room.status === "HAND_COMPLETE" ? <button className="primary" onClick={async () => onRoom(await api.post(`/api/rooms/${room.id}/next-hand`, {}))}>Next Hand</button> : legal ? <>
           <strong>YOUR TURN</strong>
