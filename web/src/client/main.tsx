@@ -72,10 +72,21 @@ function AuthScreen({ api, onAuth, invitePreview }: { api: Api; onAuth: (token: 
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   async function submit(event: React.FormEvent) {
     event.preventDefault();
-    const data = await api.post(`/api/auth/${mode}`, { email, username, password });
-    onAuth(data.token);
+    setFormError("");
+    setSubmitting(true);
+    try {
+      const data = await api.post(`/api/auth/${mode}`, { email, username, password }, { silent: true });
+      onAuth(data.token);
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : "Unable to sign in.");
+    } finally {
+      setSubmitting(false);
+    }
   }
   return (
     <section className="auth">
@@ -88,10 +99,12 @@ function AuthScreen({ api, onAuth, invitePreview }: { api: Api; onAuth: (token: 
           <button type="button" className={mode === "register" ? "active" : ""} onClick={() => setMode("register")}>Create account</button>
           <button type="button" className={mode === "login" ? "active" : ""} onClick={() => setMode("login")}>Sign in</button>
         </div>
-        <label>Email<input value={email} onChange={(event) => setEmail(event.target.value)} type="email" required /></label>
-        {mode === "register" && <label>Username<input value={username} onChange={(event) => setUsername(event.target.value)} required /></label>}
-        <label>Password<input value={password} onChange={(event) => setPassword(event.target.value)} type="password" minLength={8} required /></label>
-        <button className="primary">{mode === "register" ? "Create Account" : "Sign In"}</button>
+        <p className="authHint">Hosted accounts are separate from local test accounts. Create a new account here the first time you use the live server.</p>
+        {formError && <div className="formError" role="alert">{formError}</div>}
+        <label>Email<input value={email} onChange={(event) => setEmail(event.target.value)} type="email" inputMode="email" autoCapitalize="none" autoCorrect="off" autoComplete={mode === "login" ? "email" : "email"} required /></label>
+        {mode === "register" && <label>Username<input value={username} onChange={(event) => setUsername(event.target.value)} autoCapitalize="none" autoCorrect="off" autoComplete="username" required /></label>}
+        <label>Password<div className="passwordField"><input value={password} onChange={(event) => setPassword(event.target.value)} type={showPassword ? "text" : "password"} minLength={8} autoComplete={mode === "login" ? "current-password" : "new-password"} required /><button type="button" onClick={() => setShowPassword(!showPassword)}>{showPassword ? "Hide" : "Show"}</button></div></label>
+        <button className="primary" disabled={submitting}>{submitting ? "Working..." : mode === "register" ? "Create Account" : "Sign In"}</button>
       </form>
     </section>
   );
@@ -313,18 +326,19 @@ declare global {
 
 type Api = ReturnType<typeof makeApi>;
 function makeApi(token: string, setError: (error: string) => void) {
-  async function request(path: string, options: RequestInit = {}) {
-    const response = await fetch(path, { ...options, headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}), ...options.headers } });
+  async function request(path: string, options: RequestInit & { silent?: boolean } = {}) {
+    const { silent, ...requestOptions } = options;
+    const response = await fetch(path, { ...requestOptions, headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}), ...requestOptions.headers } });
     const data = await response.json();
     if (!response.ok) {
-      setError(data.error ?? "Something went wrong.");
+      if (!silent) setError(data.error ?? "Something went wrong.");
       throw new Error(data.error);
     }
     return data;
   }
   return {
     get: (path: string) => request(path),
-    post: (path: string, body: unknown) => request(path, { method: "POST", body: JSON.stringify(body) })
+    post: (path: string, body: unknown, options: { silent?: boolean } = {}) => request(path, { ...options, method: "POST", body: JSON.stringify(body) })
   };
 }
 

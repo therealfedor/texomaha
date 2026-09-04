@@ -6,12 +6,13 @@
 }
 
 * { box-sizing: border-box; }
-body { margin: 0; min-width: 320px; background: radial-gradient(circle at 50% 30%, #17221d 0, #080a0d 54%); }
+html { min-height: 100%; background: #080a0d; }
+body { margin: 0; min-width: 320px; min-height: 100%; background: radial-gradient(circle at 50% 30%, #17221d 0, #080a0d 54%); -webkit-text-size-adjust: 100%; }
 button, input { font: inherit; }
 button { border: 0; border-radius: 6px; padding: 10px 14px; background: #26312d; color: #f4f7f4; cursor: pointer; }
 button:hover { background: #33433d; }
 button:disabled { opacity: .45; cursor: not-allowed; }
-input { width: 100%; border: 1px solid #33413b; border-radius: 6px; padding: 10px 12px; background: #0f1413; color: white; }
+input { width: 100%; border: 1px solid #33413b; border-radius: 6px; padding: 10px 12px; background: #0f1413; color: white; font-size: 16px; }
 label { display: grid; gap: 6px; color: #aebbb5; font-size: 13px; }
 h1, h2, p { margin-top: 0; }
 h1 { letter-spacing: 0; }
@@ -23,6 +24,10 @@ h1 { letter-spacing: 0; }
 .brand span, .roomTop h1, .lobby h1 { color: #d6ad51; font-weight: 900; }
 .brand h1 { max-width: 720px; font-size: clamp(42px, 7vw, 88px); line-height: .92; }
 .auth form, .invite { padding: 24px; display: grid; gap: 16px; }
+.authHint { color: #aebbb5; font-size: 13px; line-height: 1.45; margin: 0; }
+.formError { border: 1px solid #9e3f3f; border-radius: 6px; padding: 10px 12px; background: rgba(124, 45, 45, .25); color: #ffd8d8; font-size: 14px; line-height: 1.35; }
+.passwordField { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.passwordField button { min-width: 72px; }
 .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .tabs .active { background: #d6ad51; color: #17130a; }
 .toast { position: fixed; z-index: 10; top: 18px; left: 50%; transform: translateX(-50%); background: #7c2d2d; }
@@ -86,15 +91,36 @@ h1 { letter-spacing: 0; }
 }
 
 @media (max-width: 900px) {
-  .auth { grid-template-columns: 1fr; padding: 28px 16px; }
-  .brand h1 { font-size: 44px; }
-  .lobby { padding: 18px; }
+  .auth { min-height: 100svh; grid-template-columns: 1fr; align-content: start; gap: 18px; padding: calc(16px + env(safe-area-inset-top)) 14px calc(16px + env(safe-area-inset-bottom)); }
+  .brand h1 { font-size: 34px; line-height: 1; margin-bottom: 0; }
+  .auth form, .invite { padding: 18px; gap: 13px; }
+  .tabs button, .primary, .passwordField button { min-height: 44px; }
+  .lobby { padding: calc(14px + env(safe-area-inset-top)) 14px calc(14px + env(safe-area-inset-bottom)); }
+  .lobby header, .roomTop { align-items: flex-start; flex-wrap: wrap; }
   .lobbyGrid, .tableLayout { grid-template-columns: 1fr; }
-  .tableLayout { grid-template-rows: 520px auto auto; }
-  .felt { min-height: 520px; border-width: 10px; }
-  .playerSeat { width: 124px; font-size: 12px; }
-  .card { width: 44px; height: 62px; }
-  .board { inset: 35% 8%; }
+  .room { min-height: 100svh; padding: calc(10px + env(safe-area-inset-top)) 10px calc(10px + env(safe-area-inset-bottom)); }
+  .tableLayout { grid-template-rows: minmax(440px, 58svh) auto auto; gap: 10px; }
+  .felt { min-height: 440px; border-width: 8px; border-radius: 28%; }
+  .playerSeat { width: 112px; min-height: 104px; font-size: 11px; padding: 8px; }
+  .playerSeat .avatar { width: 32px; height: 32px; }
+  .card { width: 40px; height: 58px; padding: 5px; }
+  .card span { font-size: 18px; }
+  .board { inset: 35% 6%; }
   .side { max-height: 280px; }
   .create { grid-template-columns: 1fr; }
+  .controls { position: sticky; bottom: 0; padding-bottom: calc(14px + env(safe-area-inset-bottom)); }
+  .controls input[type="range"] { width: min(220px, 100%); }
+}
+
+@media (max-width: 430px) {
+  .brand span { font-size: 13px; }
+  .brand h1 { font-size: 30px; }
+  .tableLayout { grid-template-rows: minmax(390px, 54svh) auto auto; }
+  .felt { min-height: 390px; }
+  .playerSeat { width: 100px; font-size: 10px; }
+  .playerSeat .miniCards { gap: 4px; }
+  .playerSeat .card { width: 28px; height: 40px; }
+  .cards { gap: 5px; }
+  .card { width: 34px; height: 50px; }
+  .pot { padding: 6px 10px; font-size: 13px; }
 }
