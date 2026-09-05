@@ -1,5 +1,5 @@
 import { v4 as uuid } from "uuid";
-import { applyAction, getLegalActions, startHand } from "../shared/pokerEngine";
+import { applyAction, assignTexomahaCards, getLegalActions, startHand } from "../shared/pokerEngine";
 import { texomahaRules } from "../shared/texomahaRules";
 import type { ClientRoomView, GamePlayer, GameRoom, TableSettings } from "../shared/types";
 import { database, persist, type StoredUser } from "./store";
@@ -49,10 +49,14 @@ export function joinRoom(room: GameRoom, user: StoredUser): GameRoom {
       allIn: false,
       connected: true,
       left: false,
-      holeCards: []
+      holeCards: [],
+      texasCards: [],
+      omahaCards: [],
+      assignmentReady: false
     };
     room.players.push(player);
   }
+  normalizePlayer(player);
   player.connected = true;
   player.left = false;
   user.status = "in_game";
@@ -64,6 +68,7 @@ export function startRoomGame(room: GameRoom, user: StoredUser): GameRoom {
   if (room.hostUserId !== user.id) throw new Error("Only the host can start the game.");
   if (room.players.filter((player) => !player.left).length < texomahaRules.minPlayers) throw new Error("Waiting for your friends to join.");
   room.status = "IN_PROGRESS";
+  room.players.forEach(normalizePlayer);
   room.hand = startHand(room.players, room.settings, room.hand?.dealerSeat ?? -1, (room.hand?.handNumber ?? 0) + 1);
   touch(room);
   return room;
@@ -72,6 +77,7 @@ export function startRoomGame(room: GameRoom, user: StoredUser): GameRoom {
 export function nextHand(room: GameRoom, user: StoredUser): GameRoom {
   if (!room.players.some((player) => player.userId === user.id)) throw new Error("You are not seated here.");
   room.status = "IN_PROGRESS";
+  room.players.forEach(normalizePlayer);
   room.hand = startHand(room.players, room.settings, room.hand?.dealerSeat ?? -1, (room.hand?.handNumber ?? 0) + 1);
   touch(room);
   return room;
@@ -79,6 +85,7 @@ export function nextHand(room: GameRoom, user: StoredUser): GameRoom {
 
 export function playerAction(room: GameRoom, user: StoredUser, type: string, amount = 0): GameRoom {
   if (!room.hand || room.status !== "IN_PROGRESS") throw new Error("No hand is in progress.");
+  room.players.forEach(normalizePlayer);
   room.hand = applyAction(room.players, room.hand, room.settings, user.id, type, amount);
   if (room.hand.winners.length > 0) {
     room.status = "HAND_COMPLETE";
@@ -87,6 +94,14 @@ export function playerAction(room: GameRoom, user: StoredUser, type: string, amo
       if (room.hand?.winners.some((winner) => winner.userId === storedUser.id)) storedUser.stats.handsWon += 1;
     });
   }
+  touch(room);
+  return room;
+}
+
+export function assignCards(room: GameRoom, user: StoredUser, texasCards: GamePlayer["holeCards"], omahaCards: GamePlayer["holeCards"]): GameRoom {
+  if (!room.hand || room.status !== "IN_PROGRESS") throw new Error("No hand is in progress.");
+  room.players.forEach(normalizePlayer);
+  room.hand = assignTexomahaCards(room.players, room.hand, room.settings, user.id, texasCards, omahaCards);
   touch(room);
   return room;
 }
@@ -114,24 +129,35 @@ export function leaveRoom(room: GameRoom, user: StoredUser): GameRoom {
 }
 
 export function clientRoomView(room: GameRoom, userId: string): ClientRoomView {
-  const shownCards: Record<string, GamePlayer["holeCards"]> = {};
+  room.players.forEach(normalizePlayer);
+  const shownCards: Record<string, { texas: GamePlayer["holeCards"]; omaha: GamePlayer["holeCards"] }> = {};
   if (room.hand?.winners.length) {
     room.players.forEach((player) => {
-      if (!player.folded) shownCards[player.userId] = player.holeCards;
+      if (!player.folded) shownCards[player.userId] = { texas: player.texasCards, omaha: player.omahaCards };
     });
   }
+  const hero = room.players.find((player) => player.userId === userId);
   return {
     ...room,
-    players: room.players.map(({ holeCards, ...player }) => player),
+    players: room.players.map(({ holeCards, texasCards, omahaCards, ...player }) => player),
     hand: room.hand
       ? {
           ...room.hand,
           deck: undefined,
-          heroCards: room.players.find((player) => player.userId === userId)?.holeCards ?? [],
+          heroCards: hero?.holeCards ?? [],
+          heroTexasCards: hero?.texasCards ?? [],
+          heroOmahaCards: hero?.omahaCards ?? [],
           shownCards
         }
       : null
   } as ClientRoomView;
+}
+
+function normalizePlayer(player: GamePlayer): void {
+  player.holeCards ??= [];
+  player.texasCards ??= [];
+  player.omahaCards ??= [];
+  player.assignmentReady ??= false;
 }
 
 export function findRoomByToken(token: string): GameRoom | undefined {

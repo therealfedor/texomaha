@@ -47,4 +47,12 @@ The server is authoritative for cards, turn order, betting, stacks, legal action
 
 ## Rules
 
-Texomaha-specific assumptions live in `src/shared/texomahaRules.ts`. The current default is Hold'em-style betting and best five out of two private cards plus five community cards. Change the rule module if your house version requires different hole-card/community-card selection.
+Texomaha-specific assumptions live in `src/shared/texomahaRules.ts`. The current default is:
+
+- each player receives 6 private cards
+- before preflop betting, each player assigns exactly 2 cards to Texas and 4 cards to Omaha
+- Texas is evaluated as best five from the assigned 2 Texas cards plus the shared board
+- Omaha is evaluated as exactly 2 assigned Omaha cards plus exactly 3 shared board cards
+- the showdown pot is split between the Texas result and the Omaha result
+
+Change the rule module if your house version uses a different split or payout rule.

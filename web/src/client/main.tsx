@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { io, Socket } from "socket.io-client";
-import type { ClientRoomView, LegalActions, PublicUser, TableSettings } from "../shared/types";
+import type { Card, ClientRoomView, LegalActions, PublicUser, TableSettings } from "../shared/types";
 import "./styles.css";
 
 type Lobby = {
@@ -213,6 +213,10 @@ function PokerTable({ room, heroId, legal, muted, api, onRoom }: { room: ClientR
     playSound(type, muted);
     onRoom(data.room);
   }
+  async function confirmAssignment(texasCards: Card[], omahaCards: Card[]) {
+    const data = await api.post(`/api/rooms/${room.id}/assign-cards`, { texasCards, omahaCards }, { silent: true });
+    onRoom(data);
+  }
   async function sendChat(event: React.FormEvent) {
     event.preventDefault();
     const message = chat.trim();
@@ -234,13 +238,17 @@ function PokerTable({ room, heroId, legal, muted, api, onRoom }: { room: ClientR
   return (
     <div className="tableLayout">
       <div className="felt">
-        {visualPlayers.map((player, index) => <PlayerSeat key={player.userId} player={player} active={room.hand?.actingSeat === player.seat} hero={player.userId === heroId} portraitTable={portraitTable} cards={player.userId === heroId ? room.hand?.heroCards : room.hand?.shownCards[player.userId]} index={index} count={visualPlayers.length} />)}
+        {visualPlayers.map((player, index) => {
+          const shown = room.hand?.shownCards[player.userId];
+          return <PlayerSeat key={player.userId} player={player} active={room.hand?.actingSeat === player.seat} hero={player.userId === heroId} portraitTable={portraitTable} cards={player.userId === heroId ? room.hand?.heroCards : shown ? [...shown.texas, ...shown.omaha] : undefined} index={index} count={visualPlayers.length} />;
+        })}
         <div className="board">
           <div className="pot">Pot {pot}</div>
           <div className="cards">{[0, 1, 2, 3, 4].map((index) => <CardView key={index} card={room.hand?.communityCards[index]} />)}</div>
           <div className="street">{room.hand?.street}</div>
           {room.hand?.winners.map((winner) => <div className="winner" key={`${winner.userId}-${winner.amount}`}>{room.players.find((player) => player.userId === winner.userId)?.username} won {winner.amount} · {winner.label}</div>)}
         </div>
+        {room.hand?.street === "ASSIGNING" && <AssignmentPanel room={room} onConfirm={confirmAssignment} />}
       </div>
       <aside className={`side panel ${chatOpen ? "" : "chatClosed"}`}>
         <div className="sideHeader"><h2>Hand #{room.hand?.handNumber}</h2><button type="button" onClick={toggleChat}>{chatOpen ? "Hide Chat" : "Show Chat"}</button></div>
@@ -253,7 +261,7 @@ function PokerTable({ room, heroId, legal, muted, api, onRoom }: { room: ClientR
         </div>}
       </aside>
       <div className="controls panel">
-        {room.status === "HAND_COMPLETE" ? <button className="primary" onClick={async () => onRoom(await api.post(`/api/rooms/${room.id}/next-hand`, {}))}>Next Hand</button> : legal ? <>
+        {room.hand?.street === "ASSIGNING" ? <span>Assign 2 cards to Texas and 4 cards to Omaha before betting starts.</span> : room.status === "HAND_COMPLETE" ? <button className="primary" onClick={async () => onRoom(await api.post(`/api/rooms/${room.id}/next-hand`, {}))}>Next Hand</button> : legal ? <>
           <strong>YOUR TURN</strong>
           {legal.canFold && <button onClick={() => act("fold")}>Fold</button>}
           {legal.canCheck && <button onClick={() => act("check")}>Check</button>}
@@ -267,6 +275,57 @@ function PokerTable({ room, heroId, legal, muted, api, onRoom }: { room: ClientR
           <button onClick={() => act("all-in")}>All In</button>
         </> : <span>Waiting for action...</span>}
       </div>
+    </div>
+  );
+}
+
+function AssignmentPanel({ room, onConfirm }: { room: ClientRoomView; onConfirm: (texasCards: Card[], omahaCards: Card[]) => void }) {
+  const lockedTexas = room.hand?.heroTexasCards ?? [];
+  const lockedOmaha = room.hand?.heroOmahaCards ?? [];
+  const [texasCards, setTexasCards] = useState<Card[]>(lockedTexas);
+  const [draggedCard, setDraggedCard] = useState<Card | null>(null);
+  const assigned = new Set(texasCards);
+  const omahaCards = (room.hand?.heroCards ?? []).filter((card) => !assigned.has(card));
+  const ready = lockedTexas.length === 2 && lockedOmaha.length === 4;
+  const activePlayers = room.players.filter((player) => !player.left && !player.folded);
+  const readyCount = activePlayers.filter((player) => player.assignmentReady).length;
+
+  useEffect(() => {
+    setTexasCards(lockedTexas);
+  }, [lockedTexas.join("|")]);
+
+  function toggleTexas(card: Card) {
+    if (ready) return;
+    setTexasCards((current) => current.includes(card) ? current.filter((candidate) => candidate !== card) : current.length < 2 ? [...current, card] : [current[1], card]);
+  }
+
+  function dropToTexas(card: Card | null) {
+    if (card && !texasCards.includes(card)) toggleTexas(card);
+    setDraggedCard(null);
+  }
+
+  function dropToOmaha(card: Card | null) {
+    if (card && texasCards.includes(card)) toggleTexas(card);
+    setDraggedCard(null);
+  }
+
+  return (
+    <div className="assignment">
+      <div className="assignmentHeader"><strong>Set Your Texomaha Hand</strong><span>{readyCount}/{activePlayers.length} ready</span></div>
+      <div className="assignmentZones">
+        <AssignmentZone title="Texas" hint="Choose exactly 2" cards={texasCards} draggedCard={draggedCard} onDrop={dropToTexas} onDragStart={setDraggedCard} onToggle={toggleTexas} />
+        <AssignmentZone title="Omaha" hint="Remaining 4" cards={omahaCards} draggedCard={draggedCard} onDrop={dropToOmaha} onDragStart={setDraggedCard} onToggle={toggleTexas} />
+      </div>
+      <button className="primary" disabled={ready || texasCards.length !== 2 || omahaCards.length !== 4} onClick={() => onConfirm(texasCards, omahaCards)}>{ready ? "Cards Locked" : "Confirm Cards"}</button>
+    </div>
+  );
+}
+
+function AssignmentZone({ title, hint, cards, draggedCard, onDrop, onDragStart, onToggle }: { title: string; hint: string; cards: Card[]; draggedCard: Card | null; onDrop: (card: Card | null) => void; onDragStart: (card: Card) => void; onToggle: (card: Card) => void }) {
+  return (
+    <div className="assignmentZone" onDragOver={(event) => event.preventDefault()} onDrop={() => onDrop(draggedCard)}>
+      <div><strong>{title}</strong><span>{hint}</span></div>
+      <div className="assignmentCards">{cards.map((card) => <button type="button" className="cardButton" key={card} draggable onDragStart={() => onDragStart(card)} onClick={() => onToggle(card)}><CardView card={card} /></button>)}</div>
     </div>
   );
 }

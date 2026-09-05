@@ -1,7 +1,7 @@
 export type Suit = "S" | "H" | "D" | "C";
 export type Rank = "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "T" | "J" | "Q" | "K" | "A";
 export type Card = `${Rank}${Suit}`;
-export type Street = "PREFLOP" | "FLOP" | "TURN" | "RIVER" | "SHOWDOWN";
+export type Street = "ASSIGNING" | "PREFLOP" | "FLOP" | "TURN" | "RIVER" | "SHOWDOWN";
 export type RoomStatus = "WAITING" | "STARTING" | "IN_PROGRESS" | "SHOWDOWN" | "HAND_COMPLETE" | "ENDED";
 export type PlayerStatus = "online" | "offline" | "in_game";
 export type PokerActionType = "fold" | "check" | "call" | "bet" | "raise" | "all-in";
@@ -42,7 +42,12 @@ export interface GamePlayer {
   connected: boolean;
   left: boolean;
   holeCards: Card[];
+  texasCards: Card[];
+  omahaCards: Card[];
+  assignmentReady: boolean;
 }
+
+export type PublicGamePlayer = Omit<GamePlayer, "holeCards" | "texasCards" | "omahaCards">;
 
 export interface Pot {
   amount: number;
@@ -90,8 +95,8 @@ export interface ChatMessage {
 }
 
 export interface ClientRoomView extends Omit<GameRoom, "players" | "hand"> {
-  players: Omit<GamePlayer, "holeCards">[];
-  hand: (Omit<HandState, "deck"> & { heroCards: Card[]; shownCards: Record<string, Card[]> }) | null;
+  players: PublicGamePlayer[];
+  hand: (Omit<HandState, "deck"> & { heroCards: Card[]; heroTexasCards: Card[]; heroOmahaCards: Card[]; shownCards: Record<string, { texas: Card[]; omaha: Card[] }> }) | null;
 }
 
 export interface LegalActions {

@@ -47,9 +47,20 @@ const labels = [
 ];
 
 export function evaluateTexomahaHand(holeCards: Card[], communityCards: Card[]): EvaluatedHand {
-  const cards = texomahaRules.selectCandidateCards(holeCards, communityCards);
+  const cards = texomahaRules.selectTexasCandidateCards(holeCards, communityCards);
   if (cards.length < 5) throw new Error("At least five cards are required");
   return combinations(cards, 5).map(evaluateFive).sort(compareHands).at(-1)!;
+}
+
+export function evaluateTexasHand(texasCards: Card[], communityCards: Card[]): EvaluatedHand {
+  if (texasCards.length !== texomahaRules.texasCardsRequired) throw new Error("Texas requires exactly two assigned cards.");
+  return evaluateTexomahaHand(texasCards, communityCards);
+}
+
+export function evaluateOmahaHand(omahaCards: Card[], communityCards: Card[]): EvaluatedHand {
+  if (omahaCards.length !== texomahaRules.omahaCardsRequired) throw new Error("Omaha requires exactly four assigned cards.");
+  if (communityCards.length < 3) throw new Error("Omaha requires at least three community cards.");
+  return texomahaRules.selectOmahaCandidateHands(omahaCards, communityCards).map(evaluateFive).sort(compareHands).at(-1)!;
 }
 
 export function compareHands(a: EvaluatedHand, b: EvaluatedHand): number {
@@ -118,6 +129,9 @@ export function startHand(players: GamePlayer[], settings: TableSettings, previo
     player.folded = !isActive;
     player.allIn = !isActive;
     player.holeCards = [];
+    player.texasCards = [];
+    player.omahaCards = [];
+    player.assignmentReady = false;
   });
 
   const dealerSeat = nextOccupiedSeat(active, previousDealerSeat);
@@ -126,34 +140,61 @@ export function startHand(players: GamePlayer[], settings: TableSettings, previo
   for (let cardIndex = 0; cardIndex < texomahaRules.holeCardsPerPlayer; cardIndex += 1) {
     active.forEach((player) => player.holeCards.push(deck.pop()!));
   }
-  const history: string[] = [`Hand #${handNumber} started`];
-  postBlind(players, smallBlindSeat, settings.smallBlind, history, "small blind");
-  postBlind(players, bigBlindSeat, settings.bigBlind, history, "big blind");
-  if (settings.ante > 0) active.forEach((player) => commitChips(player, settings.ante, history, "posted ante"));
-
-  const initialPlayersToAct = players.filter(canAct).map((player) => player.userId);
-  const actingSeat = nextActionSeat(players, bigBlindSeat, initialPlayersToAct);
+  const history: string[] = [`Hand #${handNumber} started`, "Players are assigning 2 Texas cards and 4 Omaha cards"];
   return {
     handNumber,
     deck,
     dealerSeat,
     smallBlindSeat,
     bigBlindSeat,
-    street: "PREFLOP",
+    street: "ASSIGNING",
     communityCards: [],
-    currentBet: Math.min(settings.bigBlind, players.find((p) => p.seat === bigBlindSeat)?.currentBet ?? 0),
+    currentBet: 0,
     minRaise: settings.bigBlind,
-    actingSeat,
+    actingSeat: null,
     lastAggressorSeat: bigBlindSeat,
-    playersToAct: initialPlayersToAct,
+    playersToAct: active.map((player) => player.userId),
     pots: [],
     winners: [],
     history
   };
 }
 
+export function assignTexomahaCards(players: GamePlayer[], hand: HandState, settings: TableSettings, userId: string, texasCards: Card[], omahaCards: Card[]): HandState {
+  if (hand.street !== "ASSIGNING") throw new Error("Card assignment is already closed.");
+  const player = players.find((candidate) => candidate.userId === userId);
+  if (!player || player.folded || player.left) throw new Error("You are not active in this hand.");
+  validateAssignment(player.holeCards, texasCards, omahaCards);
+  player.texasCards = texasCards;
+  player.omahaCards = omahaCards;
+  player.assignmentReady = true;
+  hand.history.push(`${player.username} locked cards`);
+
+  const active = players.filter((candidate) => !candidate.left && !candidate.folded);
+  if (active.every((candidate) => candidate.assignmentReady)) {
+    postBlind(players, hand.smallBlindSeat, settings.smallBlind, hand.history, "small blind");
+    postBlind(players, hand.bigBlindSeat, settings.bigBlind, hand.history, "big blind");
+    if (settings.ante > 0) active.forEach((candidate) => commitChips(candidate, settings.ante, hand.history, "posted ante"));
+    hand.street = "PREFLOP";
+    hand.currentBet = Math.min(settings.bigBlind, players.find((candidate) => candidate.seat === hand.bigBlindSeat)?.currentBet ?? 0);
+    hand.playersToAct = players.filter(canAct).map((candidate) => candidate.userId);
+    hand.actingSeat = nextActionSeat(players, hand.bigBlindSeat, hand.playersToAct);
+    hand.history.push("Preflop betting started");
+  }
+  return hand;
+}
+
+function validateAssignment(holeCards: Card[], texasCards: Card[], omahaCards: Card[]): void {
+  if (texasCards.length !== texomahaRules.texasCardsRequired) throw new Error("Choose exactly two Texas cards.");
+  if (omahaCards.length !== texomahaRules.omahaCardsRequired) throw new Error("Choose exactly four Omaha cards.");
+  const allAssigned = [...texasCards, ...omahaCards];
+  if (new Set(allAssigned).size !== texomahaRules.holeCardsPerPlayer) throw new Error("Each card can only be assigned once.");
+  const holeSet = new Set(holeCards);
+  if (!allAssigned.every((card) => holeSet.has(card))) throw new Error("Assigned cards must come from your hand.");
+}
+
 export function getLegalActions(player: GamePlayer, hand: HandState, settings: TableSettings): LegalActions {
-  if (hand.actingSeat !== player.seat || player.folded || player.allIn || player.left) {
+  if (hand.street === "ASSIGNING" || hand.actingSeat !== player.seat || player.folded || player.allIn || player.left) {
     return { canFold: false, canCheck: false, callAmount: 0, minBet: 0, minRaiseTo: 0, maxAmount: 0 };
   }
   const toCall = Math.max(0, hand.currentBet - player.currentBet);
@@ -169,6 +210,7 @@ export function getLegalActions(player: GamePlayer, hand: HandState, settings: T
 }
 
 export function applyAction(players: GamePlayer[], hand: HandState, settings: TableSettings, userId: string, type: string, amount = 0): HandState {
+  if (hand.street === "ASSIGNING") throw new Error("Lock your Texas and Omaha cards before betting starts.");
   const player = players.find((candidate) => candidate.userId === userId);
   if (!player || hand.actingSeat !== player.seat) throw new Error("No longer your turn.");
   const legal = getLegalActions(player, hand, settings);
@@ -247,17 +289,27 @@ export function showdown(players: GamePlayer[], hand: HandState): HandState {
   hand.winners = [];
   for (const pot of hand.pots) {
     const eligible = players.filter((player) => pot.eligibleUserIds.includes(player.userId) && !player.folded);
-    const ranked = eligible.map((player) => ({ player, hand: evaluateTexomahaHand(player.holeCards, hand.communityCards) })).sort((a, b) => compareHands(a.hand, b.hand));
-    const best = ranked.at(-1)!;
-    const winners = ranked.filter((entry) => compareHands(entry.hand, best.hand) === 0);
-    const share = Math.floor(pot.amount / winners.length);
-    winners.forEach(({ player, hand: bestHand }) => {
-      player.stack += share;
-      hand.winners.push({ userId: player.userId, amount: share, label: bestHand.label, cards: bestHand.cards });
-      hand.history.push(`${player.username} won ${share} with ${bestHand.label}`);
-    });
+    const texasAmount = Math.ceil(pot.amount / 2);
+    const omahaAmount = pot.amount - texasAmount;
+    awardShowdownShare(hand, eligible, texasAmount, "Texas", (player) => evaluateTexasHand(player.texasCards, hand.communityCards));
+    awardShowdownShare(hand, eligible, omahaAmount, "Omaha", (player) => evaluateOmahaHand(player.omahaCards, hand.communityCards));
   }
   return hand;
+}
+
+function awardShowdownShare(hand: HandState, eligible: GamePlayer[], amount: number, gameName: "Texas" | "Omaha", evaluator: (player: GamePlayer) => EvaluatedHand): void {
+  if (amount <= 0 || eligible.length === 0) return;
+  const ranked = eligible.map((player) => ({ player, hand: evaluator(player) })).sort((a, b) => compareHands(a.hand, b.hand));
+  const best = ranked.at(-1)!;
+  const winners = ranked.filter((entry) => compareHands(entry.hand, best.hand) === 0);
+  const share = Math.floor(amount / winners.length);
+  const remainder = amount % winners.length;
+  winners.forEach(({ player, hand: bestHand }, index) => {
+    const paid = share + (index === 0 ? remainder : 0);
+    player.stack += paid;
+    hand.winners.push({ userId: player.userId, amount: paid, label: `${gameName}: ${bestHand.label}`, cards: bestHand.cards });
+    hand.history.push(`${player.username} won ${paid} in ${gameName} with ${bestHand.label}`);
+  });
 }
 
 export function calculatePots(players: GamePlayer[]): Pot[] {

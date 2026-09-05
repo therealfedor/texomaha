@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyAction, calculatePots, createDeck, evaluateTexomahaHand, getLegalActions, shuffleDeck, startHand } from "../src/shared/pokerEngine";
+import { applyAction, assignTexomahaCards, calculatePots, createDeck, evaluateOmahaHand, evaluateTexomahaHand, getLegalActions, shuffleDeck, startHand } from "../src/shared/pokerEngine";
 import type { Card, GamePlayer, TableSettings } from "../src/shared/types";
 
 const settings: TableSettings = { startingStack: 1000, smallBlind: 10, bigBlind: 20, ante: 0, maxPlayers: 6 };
@@ -17,8 +17,18 @@ function players(count = 2): GamePlayer[] {
     allIn: false,
     connected: true,
     left: false,
-    holeCards: []
+    holeCards: [],
+    texasCards: [],
+    omahaCards: [],
+    assignmentReady: false
   }));
+}
+
+function assignAll(seated: GamePlayer[], hand = startHand(seated, settings)) {
+  for (const player of seated.filter((candidate) => !candidate.folded)) {
+    assignTexomahaCards(seated, hand, settings, player.userId, player.holeCards.slice(0, 2), player.holeCards.slice(2, 6));
+  }
+  return hand;
 }
 
 describe("deck and dealing", () => {
@@ -38,7 +48,16 @@ describe("deck and dealing", () => {
   it("starts a hand with blinds, hole cards, and turn order", () => {
     const seated = players(2);
     const hand = startHand(seated, settings);
-    expect(seated.every((player) => player.holeCards.length === 2)).toBe(true);
+    expect(seated.every((player) => player.holeCards.length === 6)).toBe(true);
+    expect(seated.reduce((sum, player) => sum + player.totalCommitted, 0)).toBe(0);
+    expect(hand.street).toBe("ASSIGNING");
+    expect(hand.actingSeat).toBeNull();
+  });
+
+  it("starts preflop only after all players assign Texas and Omaha cards", () => {
+    const seated = players(2);
+    const hand = assignAll(seated);
+    expect(seated.every((player) => player.assignmentReady && player.texasCards.length === 2 && player.omahaCards.length === 4)).toBe(true);
     expect(seated.reduce((sum, player) => sum + player.totalCommitted, 0)).toBe(30);
     expect(hand.street).toBe("PREFLOP");
     expect(hand.actingSeat).not.toBeNull();
@@ -59,19 +78,24 @@ describe("hand evaluation", () => {
     expect(a.category).toBe(b.category);
     expect(a.tiebreakers).toEqual(b.tiebreakers);
   });
+
+  it("evaluates Omaha with exactly two assigned cards and three board cards", () => {
+    const omaha = evaluateOmahaHand(["AS", "KS", "2D", "3C"], ["QS", "JS", "TS", "9H", "8D"]);
+    expect(omaha.label).toBe("Royal Flush");
+  });
 });
 
 describe("betting state machine", () => {
   it("rejects acting out of turn", () => {
     const seated = players(2);
-    const hand = startHand(seated, settings);
+    const hand = assignAll(seated);
     const wrong = seated.find((player) => player.seat !== hand.actingSeat)!;
     expect(() => applyAction(seated, hand, settings, wrong.userId, "call")).toThrow("No longer your turn.");
   });
 
   it("supports calls and street progression through flop turn river showdown", () => {
     const seated = players(2);
-    let hand = startHand(seated, settings);
+    let hand = assignAll(seated);
     hand = applyAction(seated, hand, settings, seated.find((p) => p.seat === hand.actingSeat)!.userId, "call");
     hand = applyAction(seated, hand, settings, seated.find((p) => p.seat === hand.actingSeat)!.userId, "check");
     expect(hand.street).toBe("FLOP");
@@ -90,7 +114,7 @@ describe("betting state machine", () => {
 
   it("supports legal raises and blocks below-minimum raises", () => {
     const seated = players(2);
-    const hand = startHand(seated, settings);
+    const hand = assignAll(seated);
     const actor = seated.find((player) => player.seat === hand.actingSeat)!;
     expect(getLegalActions(actor, hand, settings).minRaiseTo).toBe(40);
     expect(() => applyAction(seated, hand, settings, actor.userId, "raise", 30)).toThrow("Raise is below the minimum.");
@@ -100,7 +124,7 @@ describe("betting state machine", () => {
 
   it("awards the pot when everyone else folds", () => {
     const seated = players(2);
-    const hand = startHand(seated, settings);
+    const hand = assignAll(seated);
     const actor = seated.find((player) => player.seat === hand.actingSeat)!;
     applyAction(seated, hand, settings, actor.userId, "fold");
     expect(hand.winners[0].label).toBe("Uncontested");
@@ -122,13 +146,13 @@ describe("betting state machine", () => {
     const hand = startHand(seated, settings);
     seated[0].connected = false;
     seated[0].connected = true;
-    expect(hand.street).toBe("PREFLOP");
-    expect(seated[0].holeCards).toHaveLength(2);
+    expect(hand.street).toBe("ASSIGNING");
+    expect(seated[0].holeCards).toHaveLength(6);
   });
 
   it("handles player disconnect by allowing a safe fold marker", () => {
     const seated = players(2);
-    const hand = startHand(seated, settings);
+    const hand = assignAll(seated);
     const actor = seated.find((player) => player.seat === hand.actingSeat)!;
     actor.connected = false;
     if (getLegalActions(actor, hand, settings).canFold) applyAction(seated, hand, settings, actor.userId, "fold");
