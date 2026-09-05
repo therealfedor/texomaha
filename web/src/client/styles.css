@@ -79,6 +79,12 @@ h1 { letter-spacing: 0; }
 .assignmentCards { min-height: 78px; display: flex; flex-wrap: wrap; gap: 7px; align-content: start; }
 .cardButton { padding: 0; background: transparent; border-radius: 6px; }
 .cardButton:hover { background: transparent; transform: translateY(-1px); }
+.heroHandTray { position: absolute; z-index: 3; left: 50%; bottom: 7%; width: min(640px, 76%); transform: translateX(-50%); display: grid; grid-template-columns: .72fr 1fr; gap: 10px; padding: 10px; border: 1px solid rgba(244,217,141,.34); border-radius: 8px; background: rgba(8, 12, 11, .88); }
+.handGroup { display: grid; gap: 6px; align-content: start; }
+.handGroup span { color: #f4d98d; font-size: 12px; font-weight: 800; text-transform: uppercase; }
+.handGroup > div { display: flex; gap: 6px; justify-content: center; }
+.heroHandTray .card { width: 36px; height: 50px; padding: 4px; }
+.heroHandTray .card span { font-size: 15px; }
 .playerSeat { position: absolute; z-index: 2; width: 150px; transform: translate(-50%, -50%); display: grid; justify-items: center; gap: 4px; padding: 10px; border: 1px solid #34443e; border-radius: 8px; background: rgba(9, 12, 12, .9); text-align: center; }
 .playerSeat.active { border-color: #d6ad51; box-shadow: 0 0 0 3px rgba(214,173,81,.22); }
 .heroSeat { width: 170px; border-color: #6f8f80; }
@@ -116,9 +122,9 @@ h1 { letter-spacing: 0; }
   .lobby header, .roomTop { align-items: flex-start; flex-wrap: wrap; }
   .lobbyGrid, .tableLayout { grid-template-columns: 1fr; }
   .room { min-height: 100svh; padding: calc(10px + env(safe-area-inset-top)) 10px calc(10px + env(safe-area-inset-bottom)); }
-  .tableLayout { grid-template-rows: auto auto auto; gap: 10px; }
-  .felt { aspect-ratio: .76 / 1; width: min(100%, 430px); min-height: 0; height: auto; max-height: 58svh; margin: 4px auto 0; border-width: 8px; border-radius: 46% / 50%; box-shadow: inset 0 0 0 5px #936e36, 0 14px 42px rgba(0, 0, 0, .48); }
-  .playerSeat { width: 112px; min-height: 104px; font-size: 11px; padding: 8px; }
+  .tableLayout { grid-template-rows: minmax(0, 1fr) auto auto; gap: 8px; min-height: calc(100svh - 76px); }
+  .felt { aspect-ratio: auto; width: min(100%, 430px); height: min(62svh, 610px); min-height: 455px; max-height: none; margin: 0 auto; border-width: 8px; border-radius: 46% / 50%; box-shadow: inset 0 0 0 5px #936e36, 0 14px 42px rgba(0, 0, 0, .48); }
+  .playerSeat { width: 106px; min-height: 96px; font-size: 11px; padding: 7px; }
   .heroSeat { width: 128px; }
   .playerSeat .avatar { width: 32px; height: 32px; }
   .card { width: 40px; height: 58px; padding: 5px; }
@@ -129,6 +135,10 @@ h1 { letter-spacing: 0; }
   .assignmentZone { min-height: 118px; padding: 8px; }
   .assignmentCards { min-height: 58px; gap: 5px; }
   .assignmentCards .card { width: 31px; height: 46px; }
+  .heroHandTray { bottom: 8%; width: min(330px, 86%); grid-template-columns: 1fr; gap: 7px; padding: 8px; }
+  .heroHandTray .card { width: 30px; height: 43px; }
+  .handGroup { gap: 4px; }
+  .handGroup span { font-size: 11px; }
   .side { max-height: 220px; }
   .create { grid-template-columns: 1fr; }
   .controls { position: sticky; bottom: 0; min-height: 74px; padding: 10px 8px calc(10px + env(safe-area-inset-bottom)); }
@@ -139,10 +149,10 @@ h1 { letter-spacing: 0; }
 @media (max-width: 430px) {
   .brand span { font-size: 13px; }
   .brand h1 { font-size: 30px; }
-  .tableLayout { grid-template-rows: auto auto auto; }
-  .felt { aspect-ratio: .72 / 1; width: min(100%, 360px); max-height: 56svh; }
-  .playerSeat { width: 96px; min-height: 96px; font-size: 10px; gap: 3px; }
-  .heroSeat { width: 112px; }
+  .tableLayout { grid-template-rows: minmax(0, 1fr) auto auto; }
+  .felt { width: min(100%, 360px); height: min(61svh, 540px); min-height: 430px; }
+  .playerSeat { width: 92px; min-height: 88px; font-size: 10px; gap: 3px; }
+  .heroSeat { width: 106px; }
   .playerSeat .miniCards { gap: 4px; }
   .playerSeat .card { width: 28px; height: 40px; }
   .cards { gap: 5px; }
@@ -154,7 +164,7 @@ h1 { letter-spacing: 0; }
 }
 
 @media (max-width: 380px) {
-  .felt { width: 330px; max-width: 100%; }
+  .felt { width: min(100%, 330px); height: min(60svh, 500px); min-height: 400px; }
   .playerSeat { width: 88px; min-height: 88px; }
   .heroSeat { width: 104px; }
   .playerSeat .avatar { width: 28px; height: 28px; }

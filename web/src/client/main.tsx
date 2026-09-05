@@ -249,6 +249,7 @@ function PokerTable({ room, heroId, legal, muted, api, onRoom }: { room: ClientR
           {room.hand?.winners.map((winner) => <div className="winner" key={`${winner.userId}-${winner.amount}`}>{room.players.find((player) => player.userId === winner.userId)?.username} won {winner.amount} · {winner.label}</div>)}
         </div>
         {room.hand?.street === "ASSIGNING" && <AssignmentPanel room={room} onConfirm={confirmAssignment} />}
+        {room.hand && room.hand.street !== "ASSIGNING" && <HeroHandTray texasCards={room.hand.heroTexasCards} omahaCards={room.hand.heroOmahaCards} />}
       </div>
       <aside className={`side panel ${chatOpen ? "" : "chatClosed"}`}>
         <div className="sideHeader"><h2>Hand #{room.hand?.handNumber}</h2><button type="button" onClick={toggleChat}>{chatOpen ? "Hide Chat" : "Show Chat"}</button></div>
@@ -275,6 +276,15 @@ function PokerTable({ room, heroId, legal, muted, api, onRoom }: { room: ClientR
           <button onClick={() => act("all-in")}>All In</button>
         </> : <span>Waiting for action...</span>}
       </div>
+    </div>
+  );
+}
+
+function HeroHandTray({ texasCards, omahaCards }: { texasCards: Card[]; omahaCards: Card[] }) {
+  return (
+    <div className="heroHandTray">
+      <div className="handGroup texasGroup"><span>Texas</span><div>{texasCards.map((card) => <CardView key={card} card={card} />)}</div></div>
+      <div className="handGroup omahaGroup"><span>Omaha</span><div>{omahaCards.map((card) => <CardView key={card} card={card} />)}</div></div>
     </div>
   );
 }
