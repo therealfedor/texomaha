@@ -106,6 +106,28 @@ export function assignCards(room: GameRoom, user: StoredUser, texasCards: GamePl
   return room;
 }
 
+export function rebuyPlayer(room: GameRoom, user: StoredUser, amount: number): GameRoom {
+  const player = room.players.find((candidate) => candidate.userId === user.id);
+  if (!player) throw new Error("You are not seated here.");
+  normalizePlayer(player);
+  if (player.stack > 0) throw new Error("You still have chips.");
+  const rebuyAmount = clampInt(amount, room.settings.bigBlind * 10, room.settings.startingStack * 5);
+  player.stack = rebuyAmount;
+  player.left = false;
+  player.connected = true;
+  player.folded = room.status === "IN_PROGRESS";
+  player.allIn = false;
+  player.currentBet = 0;
+  player.totalCommitted = 0;
+  player.holeCards = [];
+  player.texasCards = [];
+  player.omahaCards = [];
+  player.assignmentReady = false;
+  room.hand?.history.push(`${player.username} sat back down with ${rebuyAmount}`);
+  touch(room);
+  return room;
+}
+
 export function leaveRoom(room: GameRoom, user: StoredUser): GameRoom {
   const player = room.players.find((candidate) => candidate.userId === user.id);
   if (!player) return room;

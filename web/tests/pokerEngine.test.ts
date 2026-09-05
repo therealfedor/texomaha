@@ -158,4 +158,13 @@ describe("betting state machine", () => {
     if (getLegalActions(actor, hand, settings).canFold) applyAction(seated, hand, settings, actor.userId, "fold");
     expect(actor.connected).toBe(false);
   });
+
+  it("does not deal busted players into a new hand until they rebuy", () => {
+    const seated = players(3);
+    seated[1].stack = 0;
+    const hand = startHand(seated, settings);
+    expect(seated[1].holeCards).toHaveLength(0);
+    expect(seated[1].folded).toBe(true);
+    expect(hand.playersToAct).not.toContain(seated[1].userId);
+  });
 });

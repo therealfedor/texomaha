@@ -201,6 +201,7 @@ function PokerTable({ room, heroId, legal, muted, api, onRoom }: { room: ClientR
   const [chatError, setChatError] = useState("");
   const portraitTable = usePortraitTable();
   const heroIndex = room.players.findIndex((player) => player.userId === heroId);
+  const heroPlayer = room.players.find((player) => player.userId === heroId);
   const visualPlayers = heroIndex >= 0 ? [...room.players.slice(heroIndex), ...room.players.slice(0, heroIndex)] : room.players;
   const pot = room.players.reduce((sum, player) => sum + player.totalCommitted, 0);
   const minWager = legal ? Math.min(legal.maxAmount, Math.max(legal.minBet, legal.minRaiseTo)) : 0;
@@ -251,6 +252,7 @@ function PokerTable({ room, heroId, legal, muted, api, onRoom }: { room: ClientR
         </div>
         {room.hand?.street === "ASSIGNING" && <AssignmentPanel room={room} onConfirm={confirmAssignment} />}
         {room.hand && room.hand.street !== "ASSIGNING" && <HeroHandTray texasCards={room.hand.heroTexasCards} omahaCards={room.hand.heroOmahaCards} />}
+        {room.hand?.winners.length ? <ShowdownSplits room={room} /> : null}
       </div>
       <aside className="side panel">
         <div className="sideHeader"><h2>Hand #{room.hand?.handNumber}</h2></div>
@@ -263,7 +265,7 @@ function PokerTable({ room, heroId, legal, muted, api, onRoom }: { room: ClientR
         </div>}
       </aside>
       <div className="controls panel">
-        {room.hand?.street === "ASSIGNING" ? <span>Assign 2 cards to Texas and 4 cards to Omaha before betting starts.</span> : room.status === "HAND_COMPLETE" ? <button className="primary" onClick={async () => onRoom(await api.post(`/api/rooms/${room.id}/next-hand`, {}))}>Next Hand</button> : legal ? <>
+        {heroPlayer && heroPlayer.stack <= 0 ? <RebuyControl room={room} api={api} onRoom={onRoom} /> : room.hand?.street === "ASSIGNING" ? <span>Assign 2 cards to Texas and 4 cards to Omaha before betting starts.</span> : room.status === "HAND_COMPLETE" ? <button className="primary" onClick={async () => onRoom(await api.post(`/api/rooms/${room.id}/next-hand`, {}))}>Next Hand</button> : legal ? <>
           <strong>YOUR TURN</strong>
           {legal.canFold && <button onClick={() => act("fold")}>Fold</button>}
           {legal.canCheck && <button onClick={() => act("check")}>Check</button>}
@@ -286,6 +288,37 @@ function HeroHandTray({ texasCards, omahaCards }: { texasCards: Card[]; omahaCar
     <div className="heroHandTray">
       <div className="handGroup texasGroup"><span>Texas</span><div>{texasCards.map((card) => <CardView key={card} card={card} />)}</div></div>
       <div className="handGroup omahaGroup"><span>Omaha</span><div>{omahaCards.map((card) => <CardView key={card} card={card} />)}</div></div>
+    </div>
+  );
+}
+
+function ShowdownSplits({ room }: { room: ClientRoomView }) {
+  const entries = room.players
+    .map((player) => ({ player, split: room.hand?.shownCards[player.userId] }))
+    .filter((entry): entry is { player: ClientRoomView["players"][number]; split: { texas: Card[]; omaha: Card[] } } => Boolean(entry.split));
+  if (entries.length === 0) return null;
+  return (
+    <div className="showdownSplits">
+      {entries.map(({ player, split }) => (
+        <div className="showdownPlayer" key={player.userId}>
+          <strong>{player.username}</strong>
+          <div><span>Texas</span>{split.texas.map((card) => <CardView key={card} card={card} />)}</div>
+          <div><span>Omaha</span>{split.omaha.map((card) => <CardView key={card} card={card} />)}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function RebuyControl({ room, api, onRoom }: { room: ClientRoomView; api: Api; onRoom: (room: ClientRoomView) => void }) {
+  const [amount, setAmount] = useState(room.settings.startingStack);
+  const min = room.settings.bigBlind * 10;
+  const max = room.settings.startingStack * 5;
+  return (
+    <div className="rebuyControl">
+      <strong>You are out of chips</strong>
+      <input type="number" min={min} max={max} value={amount} onChange={(event) => setAmount(Number(event.target.value))} />
+      <button className="primary" onClick={async () => onRoom(await api.post(`/api/rooms/${room.id}/rebuy`, { amount }))}>Sit Back Down</button>
     </div>
   );
 }

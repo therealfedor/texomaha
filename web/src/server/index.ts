@@ -5,7 +5,7 @@ import { Server } from "socket.io";
 import { v4 as uuid } from "uuid";
 import { login, publicUser, register, requireUserFromHeader, userFromToken } from "./auth";
 import { database, persist } from "./store";
-import { assignCards, clientRoomView, createRoom, findRoom, findRoomByToken, joinRoom, leaveRoom, legalActions, nextHand, playerAction, startRoomGame } from "./rooms";
+import { assignCards, clientRoomView, createRoom, findRoom, findRoomByToken, joinRoom, leaveRoom, legalActions, nextHand, playerAction, rebuyPlayer, startRoomGame } from "./rooms";
 
 const app = express();
 const server = createServer(app);
@@ -139,6 +139,14 @@ app.post("/api/rooms/:id/leave", (request, response) => {
   leaveRoom(room, user);
   emitRoom(room.id);
   response.json({ ok: true });
+});
+
+app.post("/api/rooms/:id/rebuy", (request, response) => {
+  const user = requireUserFromHeader(request.headers.authorization);
+  const room = mustRoom(request.params.id);
+  rebuyPlayer(room, user, request.body.amount);
+  emitRoom(room.id);
+  response.json(clientRoomView(room, user.id));
 });
 
 app.post("/api/rooms/:id/chat", (request, response) => {
