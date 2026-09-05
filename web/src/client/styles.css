@@ -51,6 +51,7 @@ h1 { letter-spacing: 0; }
 
 .room { min-height: 100vh; padding: 18px; }
 .roomTop { margin-bottom: 14px; }
+.roomTools { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
 .copyStatus { max-width: 520px; margin: 0 auto 12px; padding: 9px 12px; border: 1px solid #3b493f; border-radius: 6px; background: rgba(9, 12, 12, .88); color: #f4d98d; text-align: center; }
 .waiting { padding: 28px; min-height: 70vh; display: grid; align-content: center; justify-items: center; gap: 24px; }
 .inviteBox { width: min(620px, 100%); display: grid; gap: 8px; color: #aebbb5; }
@@ -129,6 +130,7 @@ h1 { letter-spacing: 0; }
   .tabs button, .primary, .passwordField button { min-height: 44px; }
   .lobby { padding: calc(14px + env(safe-area-inset-top)) 14px calc(14px + env(safe-area-inset-bottom)); }
   .lobby header, .roomTop { align-items: flex-start; flex-wrap: wrap; }
+  .roomTools { width: 100%; justify-content: flex-start; }
   .lobbyGrid, .tableLayout { grid-template-columns: 1fr; }
   .room { min-height: 100svh; padding: calc(10px + env(safe-area-inset-top)) 10px calc(10px + env(safe-area-inset-bottom)); }
   .tableLayout { grid-template-rows: minmax(0, 1fr) auto auto; gap: 8px; min-height: calc(100svh - 76px); }

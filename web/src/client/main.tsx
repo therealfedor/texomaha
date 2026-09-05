@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { io, Socket } from "socket.io-client";
 import type { Card, ClientRoomView, LegalActions, PublicUser, TableSettings } from "../shared/types";
@@ -22,6 +22,7 @@ function App() {
   const [invitePreview, setInvitePreview] = useState<{ hostUsername: string; token: string } | null>(null);
   const [error, setError] = useState("");
   const [muted, setMuted] = useState(localStorage.getItem("texomaha_muted") !== "false");
+  const [musicOn, setMusicOn] = useState(localStorage.getItem("texomaha_music_on") === "true");
 
   const api = useMemo(() => makeApi(token, setError), [token]);
 
@@ -57,7 +58,7 @@ function App() {
     <main>
       {error && <button className="toast" onClick={() => setError("")}>{error}</button>}
       {room ? (
-        <RoomScreen room={room} api={api} lobby={lobby} muted={muted} setMuted={setMuted} onRoom={setRoom} onBack={() => { setRoom(null); history.pushState(null, "", "/"); }} />
+        <RoomScreen room={room} api={api} lobby={lobby} muted={muted} setMuted={setMuted} musicOn={musicOn} setMusicOn={setMusicOn} onRoom={setRoom} onBack={() => { setRoom(null); history.pushState(null, "", "/"); }} />
       ) : joinToken && invitePreview ? (
         <InviteScreen preview={invitePreview} api={api} onJoin={setRoom} />
       ) : (
@@ -167,19 +168,50 @@ function InviteScreen({ preview, api, onJoin }: { preview: { hostUsername: strin
   return <section className="auth"><div className="panel invite"><h1>{preview.hostUsername} invited you to play Texomaha</h1><button className="primary" onClick={async () => onJoin(await api.post(`/api/join/${preview.token}`, {}))}>Join Game</button></div></section>;
 }
 
-function RoomScreen({ room, api, lobby, muted, setMuted, onRoom, onBack }: { room: ClientRoomView; api: Api; lobby: Lobby | null; muted: boolean; setMuted: (muted: boolean) => void; onRoom: (room: ClientRoomView) => void; onBack: () => void }) {
+function RoomScreen({ room, api, lobby, muted, setMuted, musicOn, setMusicOn, onRoom, onBack }: { room: ClientRoomView; api: Api; lobby: Lobby | null; muted: boolean; setMuted: (muted: boolean) => void; musicOn: boolean; setMusicOn: (musicOn: boolean) => void; onRoom: (room: ClientRoomView) => void; onBack: () => void }) {
   const hero = lobby?.user;
   const me = room.players.find((player) => player.userId === hero?.id);
   const legal = room.hand && me?.seat === room.hand.actingSeat ? getClientLegal(room, me.userId) : null;
   const inviteUrl = `${location.origin}/join/${room.inviteToken}`;
   const [copyStatus, setCopyStatus] = useState("");
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  async function toggleMusic() {
+    const next = !musicOn;
+    setMusicOn(next);
+    localStorage.setItem("texomaha_music_on", String(next));
+    if (!audioRef.current) return;
+    if (next) {
+      audioRef.current.volume = 0.28;
+      try {
+        await audioRef.current.play();
+      } catch {
+        setMusicOn(false);
+        localStorage.setItem("texomaha_music_on", "false");
+      }
+    } else {
+      audioRef.current.pause();
+    }
+  }
+  useEffect(() => {
+    if (!audioRef.current) return;
+    if (musicOn) {
+      audioRef.current.volume = 0.28;
+      audioRef.current.play().catch(() => {
+        setMusicOn(false);
+        localStorage.setItem("texomaha_music_on", "false");
+      });
+    } else {
+      audioRef.current.pause();
+    }
+  }, [musicOn, setMusicOn]);
   async function copyInvite() {
     const copied = await copyText(inviteUrl);
     setCopyStatus(copied ? "Invite link copied" : "Select and copy the invite link below");
   }
   return (
     <section className="room">
-      <header className="roomTop"><button onClick={onBack}>Lobby</button><h1>TEXOMAHA TABLE</h1><button onClick={() => { const next = !muted; setMuted(next); localStorage.setItem("texomaha_muted", String(next)); }}>{muted ? "Sound Off" : "Sound On"}</button><button onClick={copyInvite}>Copy Game Link</button></header>
+      <audio ref={audioRef} src="/audio/lofi.aif" loop preload="auto" />
+      <header className="roomTop"><button onClick={onBack}>Lobby</button><h1>TEXOMAHA TABLE</h1><div className="roomTools"><button onClick={() => { const next = !muted; setMuted(next); localStorage.setItem("texomaha_muted", String(next)); }}>{muted ? "SFX Off" : "SFX On"}</button><button onClick={toggleMusic}>{musicOn ? "Music On" : "Music Off"}</button><button onClick={copyInvite}>Copy Game Link</button></div></header>
       {copyStatus && <div className="copyStatus">{copyStatus}</div>}
       {room.status === "WAITING" ? (
         <WaitingRoom room={room} api={api} lobby={lobby} onRoom={onRoom} inviteUrl={inviteUrl} onCopyInvite={copyInvite} />
