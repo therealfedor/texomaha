@@ -240,7 +240,8 @@ function PokerTable({ room, heroId, legal, muted, api, onRoom }: { room: ClientR
       <div className="felt">
         {visualPlayers.map((player, index) => {
           const shown = room.hand?.shownCards[player.userId];
-          return <PlayerSeat key={player.userId} player={player} active={room.hand?.actingSeat === player.seat} hero={player.userId === heroId} portraitTable={portraitTable} cards={player.userId === heroId ? room.hand?.heroCards : shown ? [...shown.texas, ...shown.omaha] : undefined} index={index} count={visualPlayers.length} />;
+          const heroCards = room.hand?.street === "ASSIGNING" ? room.hand.heroCards : [];
+          return <PlayerSeat key={player.userId} player={player} active={room.hand?.actingSeat === player.seat} hero={player.userId === heroId} portraitTable={portraitTable} cards={player.userId === heroId ? heroCards : shown ? [...shown.texas, ...shown.omaha] : undefined} index={index} count={visualPlayers.length} />;
         })}
         <div className="board">
           <div className="pot">Pot {pot}</div>
@@ -251,11 +252,11 @@ function PokerTable({ room, heroId, legal, muted, api, onRoom }: { room: ClientR
         {room.hand?.street === "ASSIGNING" && <AssignmentPanel room={room} onConfirm={confirmAssignment} />}
         {room.hand && room.hand.street !== "ASSIGNING" && <HeroHandTray texasCards={room.hand.heroTexasCards} omahaCards={room.hand.heroOmahaCards} />}
       </div>
-      <aside className={`side panel ${chatOpen ? "" : "chatClosed"}`}>
-        <div className="sideHeader"><h2>Hand #{room.hand?.handNumber}</h2><button type="button" onClick={toggleChat}>{chatOpen ? "Hide Chat" : "Show Chat"}</button></div>
+      <aside className="side panel">
+        <div className="sideHeader"><h2>Hand #{room.hand?.handNumber}</h2></div>
         <div className="history">{room.hand?.history.slice(-16).map((line, index) => <p key={index}>{line}</p>)}</div>
+        <div className="sideHeader chatHeader"><h2>Chat</h2><button type="button" onClick={toggleChat}>{chatOpen ? "Hide Chat" : "Show Chat"}</button></div>
         {chatOpen && <div className="chatPanel">
-          <h2>Chat</h2>
           <div className="chat">{room.chat.slice(-20).map((message) => <p key={message.id}><strong>{message.username}</strong>: {message.message}</p>)}</div>
           {chatError && <div className="chatError" role="alert">{chatError}</div>}
           <form className="chatForm" onSubmit={sendChat}><input value={chat} onChange={(event) => setChat(event.target.value)} maxLength={240} placeholder="Message" autoComplete="off" /><button disabled={!chat.trim()}>Send</button></form>

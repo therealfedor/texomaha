@@ -95,10 +95,11 @@ h1 { letter-spacing: 0; }
 .side { padding: 14px; overflow: auto; }
 .sideHeader { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .sideHeader h2 { margin-bottom: 0; }
-.chatClosed { align-self: start; }
+.chatHeader { margin-top: 14px; padding-top: 12px; border-top: 1px solid #27342f; }
 .history, .chat { max-height: 230px; overflow: auto; color: #c7d0cb; }
 .history p, .chat p { margin: 0 0 7px; }
-.chatPanel { display: grid; gap: 10px; margin-top: 14px; }
+.history { margin-top: 10px; }
+.chatPanel { display: grid; gap: 10px; margin-top: 10px; }
 .chatPanel h2 { margin-bottom: 0; }
 .chatError { border: 1px solid #9e3f3f; border-radius: 6px; padding: 8px 10px; background: rgba(124, 45, 45, .22); color: #ffd8d8; font-size: 13px; }
 .chatForm { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
