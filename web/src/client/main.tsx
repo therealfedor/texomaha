@@ -210,7 +210,7 @@ function RoomScreen({ room, api, lobby, muted, setMuted, musicOn, setMusicOn, on
   }
   return (
     <section className="room">
-      <audio ref={audioRef} src="/audio/lofi.aif" loop preload="auto" />
+      <audio ref={audioRef} src="/audio/lofi%201.aif" loop preload="auto" />
       <header className="roomTop"><button onClick={onBack}>Lobby</button><h1>TEXOMAHA TABLE</h1><div className="roomTools"><button onClick={() => { const next = !muted; setMuted(next); localStorage.setItem("texomaha_muted", String(next)); }}>{muted ? "SFX Off" : "SFX On"}</button><button onClick={toggleMusic}>{musicOn ? "Music On" : "Music Off"}</button><button onClick={copyInvite}>Copy Game Link</button></div></header>
       {copyStatus && <div className="copyStatus">{copyStatus}</div>}
       {room.status === "WAITING" ? (
