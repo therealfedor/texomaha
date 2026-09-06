@@ -17,6 +17,8 @@ final class GameViewController: UIViewController, WKNavigationDelegate {
         view.navigationDelegate = self
         view.allowsBackForwardNavigationGestures = true
         view.scrollView.contentInsetAdjustmentBehavior = .never
+        view.scrollView.bounces = false
+        view.scrollView.pinchGestureRecognizer?.isEnabled = false
         view.translatesAutoresizingMaskIntoConstraints = false
         return view
     }()

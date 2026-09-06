@@ -55,7 +55,7 @@ function App() {
   if (!token) return <AuthScreen api={api} onAuth={onAuth} invitePreview={invitePreview} />;
 
   return (
-    <main>
+    <main className={room ? "inRoom" : ""}>
       {error && <button className="toast" onClick={() => setError("")}>{error}</button>}
       {room ? (
         <RoomScreen room={room} api={api} lobby={lobby} muted={muted} setMuted={setMuted} musicOn={musicOn} setMusicOn={setMusicOn} onRoom={setRoom} onBack={() => { setRoom(null); history.pushState(null, "", "/"); }} />
@@ -229,7 +229,8 @@ function WaitingRoom({ room, api, lobby, onRoom, inviteUrl, onCopyInvite }: { ro
 function PokerTable({ room, heroId, legal, muted, api, onRoom }: { room: ClientRoomView; heroId: string; legal: LegalActions | null; muted: boolean; api: Api; onRoom: (room: ClientRoomView) => void }) {
   const [amount, setAmount] = useState(legal?.minRaiseTo || legal?.minBet || 20);
   const [chat, setChat] = useState("");
-  const [chatOpen, setChatOpen] = useState(localStorage.getItem("texomaha_chat_open") !== "false");
+  const [chatOpen, setChatOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [chatError, setChatError] = useState("");
   const portraitTable = usePortraitTable();
   const heroIndex = room.players.findIndex((player) => player.userId === heroId);
@@ -266,7 +267,12 @@ function PokerTable({ room, heroId, legal, muted, api, onRoom }: { room: ClientR
   function toggleChat() {
     const next = !chatOpen;
     setChatOpen(next);
-    localStorage.setItem("texomaha_chat_open", String(next));
+    if (next) setHistoryOpen(false);
+  }
+  function toggleHistory() {
+    const next = !historyOpen;
+    setHistoryOpen(next);
+    if (next) setChatOpen(false);
   }
   return (
     <div className="tableLayout">
@@ -283,32 +289,40 @@ function PokerTable({ room, heroId, legal, muted, api, onRoom }: { room: ClientR
           {room.hand?.winners.map((winner) => <div className="winner" key={`${winner.userId}-${winner.amount}`}>{room.players.find((player) => player.userId === winner.userId)?.username} won {winner.amount} · {winner.label}</div>)}
         </div>
         {room.hand?.street === "ASSIGNING" && <AssignmentPanel room={room} onConfirm={confirmAssignment} />}
-        {room.hand && room.hand.street !== "ASSIGNING" && <HeroHandTray texasCards={room.hand.heroTexasCards} omahaCards={room.hand.heroOmahaCards} />}
         {room.hand?.winners.length ? <ShowdownSplits room={room} /> : null}
+        <div className="tableUtilities">
+          <button type="button" onClick={toggleChat}>Chat {room.chat.length ? room.chat.length : ""}</button>
+          <button type="button" onClick={toggleHistory}>History</button>
+        </div>
       </div>
-      <aside className="side panel">
+      <aside className={`side panel ${chatOpen || historyOpen ? "open" : ""}`}>
         <div className="sideHeader"><h2>Hand #{room.hand?.handNumber}</h2></div>
-        <div className="history">{room.hand?.history.slice(-16).map((line, index) => <p key={index}>{line}</p>)}</div>
-        <div className="sideHeader chatHeader"><h2>Chat</h2><button type="button" onClick={toggleChat}>{chatOpen ? "Hide Chat" : "Show Chat"}</button></div>
-        {chatOpen && <div className="chatPanel">
+        {(historyOpen || !isMobileViewport()) && <div className="history">{room.hand?.history.slice(-16).map((line, index) => <p key={index}>{line}</p>)}</div>}
+        <div className="sideHeader chatHeader"><h2>Chat</h2><button type="button" onClick={toggleChat}>{chatOpen ? "Hide" : "Show"}</button></div>
+        {(chatOpen || !isMobileViewport()) && <div className="chatPanel">
           <div className="chat">{room.chat.slice(-20).map((message) => <p key={message.id}><strong>{message.username}</strong>: {message.message}</p>)}</div>
           {chatError && <div className="chatError" role="alert">{chatError}</div>}
           <form className="chatForm" onSubmit={sendChat}><input value={chat} onChange={(event) => setChat(event.target.value)} maxLength={240} placeholder="Message" autoComplete="off" /><button disabled={!chat.trim()}>Send</button></form>
         </div>}
       </aside>
+      {room.hand && room.hand.street !== "ASSIGNING" && <HeroHandTray texasCards={room.hand.heroTexasCards} omahaCards={room.hand.heroOmahaCards} />}
       <div className="controls panel">
-        {heroPlayer && heroPlayer.stack <= 0 ? <RebuyControl room={room} api={api} onRoom={onRoom} /> : room.hand?.street === "ASSIGNING" ? <span>Assign 2 cards to Texas and 4 cards to Omaha before betting starts.</span> : room.status === "HAND_COMPLETE" ? <button className="primary" onClick={async () => onRoom(await api.post(`/api/rooms/${room.id}/next-hand`, {}))}>Next Hand</button> : legal ? <>
-          <strong>YOUR TURN</strong>
-          {legal.canFold && <button onClick={() => act("fold")}>Fold</button>}
-          {legal.canCheck && <button onClick={() => act("check")}>Check</button>}
-          {legal.callAmount > 0 && <button onClick={() => act("call")}>Call {legal.callAmount}</button>}
-          <button onClick={() => setAmount(Math.min(legal.maxAmount, Math.max(minWager, Math.floor(pot / 2))))}>1/2 Pot</button>
-          <button onClick={() => setAmount(Math.min(legal.maxAmount, Math.max(minWager, Math.floor(pot * .75))))}>3/4 Pot</button>
-          <button onClick={() => setAmount(Math.min(legal.maxAmount, Math.max(minWager, pot)))}>Pot</button>
-          <input type="range" min={minWager} max={legal.maxAmount} value={wagerAmount} onChange={(event) => setAmount(Number(event.target.value))} />
-          <input type="number" min={minWager} max={legal.maxAmount} value={wagerAmount} onChange={(event) => setAmount(Number(event.target.value))} />
-          <button onClick={() => act(legal.callAmount > 0 ? "raise" : "bet", wagerAmount)}>{legal.callAmount > 0 ? "Raise To" : "Bet"} {wagerAmount}</button>
-          <button onClick={() => act("all-in")}>All In</button>
+        {heroPlayer && heroPlayer.stack <= 0 ? <RebuyControl room={room} api={api} onRoom={onRoom} /> : room.hand?.street === "ASSIGNING" ? <span>Assign 2 cards to Texas and 4 cards to Omaha.</span> : room.status === "HAND_COMPLETE" ? <button className="primary" onClick={async () => onRoom(await api.post(`/api/rooms/${room.id}/next-hand`, {}))}>Next Hand</button> : legal ? <>
+          <strong className="turnNotice">YOUR TURN</strong>
+          <div className="actionButtons">
+            {legal.canFold && <button onClick={() => act("fold")}>Fold</button>}
+            {legal.canCheck && <button onClick={() => act("check")}>Check</button>}
+            {legal.callAmount > 0 && <button onClick={() => act("call")}>Call {legal.callAmount}</button>}
+            <button className="primary" onClick={() => act(legal.callAmount > 0 ? "raise" : "bet", wagerAmount)}>{legal.callAmount > 0 ? "Raise" : "Bet"} {wagerAmount}</button>
+            <button onClick={() => act("all-in")}>All In</button>
+          </div>
+          <div className="wagerControls">
+            <button onClick={() => setAmount(Math.min(legal.maxAmount, Math.max(minWager, Math.floor(pot / 2))))}>1/2 Pot</button>
+            <button onClick={() => setAmount(Math.min(legal.maxAmount, Math.max(minWager, Math.floor(pot * .75))))}>3/4 Pot</button>
+            <button onClick={() => setAmount(Math.min(legal.maxAmount, Math.max(minWager, pot)))}>Pot</button>
+            <input type="range" min={minWager} max={legal.maxAmount} value={wagerAmount} onChange={(event) => setAmount(Number(event.target.value))} />
+            <input type="number" min={minWager} max={legal.maxAmount} value={wagerAmount} onChange={(event) => setAmount(Number(event.target.value))} />
+          </div>
         </> : <span>Waiting for action...</span>}
       </div>
     </div>
@@ -437,6 +451,10 @@ function usePortraitTable() {
     return () => query.removeEventListener("change", update);
   }, []);
   return portraitTable;
+}
+
+function isMobileViewport() {
+  return window.matchMedia("(max-width: 900px)").matches;
 }
 
 function getClientLegal(room: ClientRoomView, userId: string): LegalActions | null {

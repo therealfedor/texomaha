@@ -8,6 +8,8 @@
 * { box-sizing: border-box; }
 html { min-height: 100%; background: #080a0d; }
 body { margin: 0; min-width: 320px; min-height: 100%; background: radial-gradient(circle at 50% 30%, #17221d 0, #080a0d 54%); -webkit-text-size-adjust: 100%; }
+#root, main { min-height: 100%; }
+main.inRoom { height: 100dvh; overflow: hidden; overscroll-behavior: none; }
 button, input { font: inherit; }
 button { border: 0; border-radius: 6px; padding: 10px 14px; background: #26312d; color: #f4f7f4; cursor: pointer; }
 button:hover { background: #33433d; }
@@ -49,7 +51,7 @@ h1 { letter-spacing: 0; }
 .avatar { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; background: #d6ad51; color: #18130a; font-weight: 900; }
 .avatar.big { width: 74px; height: 74px; margin: 10px auto; font-size: 24px; }
 
-.room { min-height: 100vh; padding: 18px; }
+.room { min-height: 100vh; min-height: 100dvh; padding: 18px; }
 .roomTop { margin-bottom: 14px; }
 .roomTools { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
 .copyStatus { max-width: 520px; margin: 0 auto 12px; padding: 9px 12px; border: 1px solid #3b493f; border-radius: 6px; background: rgba(9, 12, 12, .88); color: #f4d98d; text-align: center; }
@@ -99,6 +101,7 @@ h1 { letter-spacing: 0; }
 .playerSeat .card { width: 34px; height: 46px; padding: 4px; border-radius: 4px; }
 .playerSeat .card span { font-size: 14px; }
 .bet { position: absolute; bottom: -16px; background: #d6ad51; color: #18130a; border-radius: 999px; padding: 4px 10px; }
+.tableUtilities { display: none; }
 .side { padding: 14px; overflow: auto; }
 .sideHeader { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .sideHeader h2 { margin-bottom: 0; }
@@ -112,6 +115,8 @@ h1 { letter-spacing: 0; }
 .chatForm { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
 .chatForm button { min-width: 68px; }
 .controls { grid-column: 1 / -1; min-height: 86px; padding: 14px; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 10px; }
+.turnNotice { color: #f4d98d; }
+.actionButtons, .wagerControls { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 10px; }
 .controls input[type="range"] { width: 220px; }
 .controls input[type="number"] { width: 110px; }
 .rebuyControl { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 10px; }
@@ -129,62 +134,94 @@ h1 { letter-spacing: 0; }
   .auth form, .invite { padding: 18px; gap: 13px; }
   .tabs button, .primary, .passwordField button { min-height: 44px; }
   .lobby { padding: calc(14px + env(safe-area-inset-top)) 14px calc(14px + env(safe-area-inset-bottom)); }
-  .lobby header, .roomTop { align-items: flex-start; flex-wrap: wrap; }
-  .roomTools { width: 100%; justify-content: flex-start; }
+  body:has(.room) { height: 100dvh; overflow: hidden; overscroll-behavior: none; }
+  #root:has(.room), main:has(.room), main.inRoom { height: 100dvh; overflow: hidden; }
+  .lobby header, .roomTop { align-items: center; flex-wrap: nowrap; }
+  .roomTop { flex: 0 0 auto; gap: 8px; margin: 0; min-height: 42px; }
+  .roomTop h1 { font-size: 15px; margin: 0; white-space: nowrap; }
+  .roomTop > button, .roomTools button { min-height: 32px; padding: 6px 8px; font-size: 12px; }
+  .roomTools { width: auto; justify-content: flex-end; gap: 5px; }
+  .roomTools button:first-child { display: none; }
   .lobbyGrid, .tableLayout { grid-template-columns: 1fr; }
-  .room { min-height: 100svh; padding: calc(10px + env(safe-area-inset-top)) 10px calc(10px + env(safe-area-inset-bottom)); }
-  .tableLayout { grid-template-rows: minmax(0, 1fr) auto auto; gap: 8px; min-height: calc(100svh - 76px); }
-  .felt { aspect-ratio: auto; width: min(100%, 430px); height: min(62svh, 610px); min-height: 455px; max-height: none; margin: 0 auto; border-width: 8px; border-radius: 46% / 50%; box-shadow: inset 0 0 0 5px #936e36, 0 14px 42px rgba(0, 0, 0, .48); }
-  .playerSeat { width: 106px; min-height: 96px; font-size: 11px; padding: 7px; }
-  .heroSeat { width: 128px; }
-  .playerSeat .avatar { width: 32px; height: 32px; }
-  .card { width: 40px; height: 58px; padding: 5px; }
-  .card span { font-size: 18px; }
-  .board { inset: 38% 9%; gap: 7px; }
-  .assignment { width: min(320px, 86%); top: 49%; padding: 10px; gap: 9px; }
+  .room { height: 100dvh; min-height: 100dvh; display: flex; flex-direction: column; padding: calc(6px + env(safe-area-inset-top)) 8px calc(6px + env(safe-area-inset-bottom)); overflow: hidden; }
+  .copyStatus { position: fixed; z-index: 20; top: calc(46px + env(safe-area-inset-top)); left: 10px; right: 10px; margin: 0; font-size: 12px; padding: 7px 9px; }
+  .tableLayout { flex: 1 1 auto; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto auto; gap: 6px; overflow: hidden; }
+  .felt { align-self: stretch; aspect-ratio: auto; width: min(100%, 420px); height: 100%; min-height: 0; max-height: none; margin: 0 auto; border-width: clamp(5px, 1.8vw, 8px); border-radius: 46% / 50%; box-shadow: inset 0 0 0 4px #936e36, 0 12px 34px rgba(0, 0, 0, .46); overflow: hidden; }
+  .felt::after { inset: 12% 10%; border-radius: 45% / 50%; }
+  .playerSeat { width: clamp(76px, 24vw, 104px); min-height: auto; font-size: clamp(9px, 2.7vw, 11px); gap: 1px; padding: 5px 6px; border-radius: 7px; }
+  .heroSeat { width: clamp(88px, 28vw, 116px); }
+  .playerSeat .avatar { width: 24px; height: 24px; font-size: 11px; }
+  .playerSeat strong, .playerSeat span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .playerSeat small { min-height: 12px; font-size: 9px; }
+  .miniCards { gap: 3px; }
+  .playerSeat .card { width: 19px; height: 27px; padding: 2px; }
+  .playerSeat .card span { font-size: 9px; }
+  .card { width: clamp(31px, 9.2vw, 39px); height: clamp(45px, 13vw, 55px); padding: 4px; border-radius: 5px; }
+  .card span { font-size: clamp(14px, 4.3vw, 18px); }
+  .cards { gap: clamp(3px, 1.4vw, 6px); }
+  .board { inset: 37% 6% 31%; gap: 5px; }
+  .pot { padding: 5px 9px; font-size: 12px; }
+  .street, .winner { font-size: 11px; text-align: center; }
+  .assignment { width: min(330px, 88%); top: 52%; padding: 9px; gap: 8px; }
   .assignmentZones { gap: 8px; }
-  .assignmentZone { min-height: 118px; padding: 8px; }
+  .assignmentHeader { font-size: 13px; }
+  .assignmentZone { min-height: 108px; padding: 7px; }
   .assignmentCards { min-height: 58px; gap: 5px; }
-  .assignmentCards .card { width: 31px; height: 46px; }
-  .heroHandTray { bottom: 8%; width: min(286px, 76%); grid-template-columns: 1fr; gap: 5px; padding: 6px; }
-  .heroHandTray .card { width: 25px; height: 36px; }
+  .assignmentCards .card { width: 27px; height: 40px; }
+  .assignment .primary { min-height: 34px; padding: 7px 10px; }
+  .heroHandTray { position: relative; left: auto; bottom: auto; transform: none; width: min(100%, 380px); margin: 0 auto; display: grid; grid-template-columns: 1fr; gap: 4px; padding: 5px 7px; border-radius: 7px; background: rgba(8, 12, 11, .9); }
+  .heroHandTray .card { width: clamp(25px, 7vw, 31px); height: clamp(36px, 10vw, 43px); padding: 3px; }
   .handGroup { grid-template-columns: 42px minmax(0, 1fr); align-items: center; gap: 4px; }
   .handGroup > div { justify-content: flex-start; gap: 4px; }
-  .handGroup span { font-size: 11px; }
-  .showdownSplits { top: 13%; width: min(300px, 82%); grid-template-columns: 1fr; gap: 6px; }
+  .handGroup span { font-size: 10px; }
+  .showdownSplits { top: 12%; width: min(300px, 82%); max-height: 42%; overflow: hidden; grid-template-columns: 1fr; gap: 5px; }
   .showdownPlayer { padding: 6px; gap: 4px; }
-  .showdownPlayer .card { width: 23px; height: 33px; }
-  .side { max-height: 220px; }
+  .showdownPlayer .card { width: 21px; height: 30px; }
+  .tableUtilities { position: absolute; z-index: 5; left: 50%; top: 9px; transform: translateX(-50%); display: flex; gap: 6px; }
+  .tableUtilities button { min-height: 30px; padding: 5px 8px; border: 1px solid rgba(255,255,255,.12); background: rgba(8,12,11,.74); font-size: 11px; }
+  .side { position: fixed; z-index: 30; left: 10px; right: 10px; bottom: calc(112px + env(safe-area-inset-bottom)); max-height: min(34dvh, 250px); display: none; overflow: hidden; padding: 10px; }
+  .side.open { display: block; }
+  .sideHeader h2 { font-size: 14px; }
+  .chatHeader { margin-top: 8px; padding-top: 8px; }
+  .history, .chat { max-height: 112px; font-size: 12px; }
+  .chatPanel { gap: 7px; }
+  .chatForm { gap: 6px; }
+  .chatForm input { height: 36px; padding: 7px 9px; }
+  .chatForm button { min-height: 36px; padding: 7px 9px; }
   .create { grid-template-columns: 1fr; }
-  .controls { position: sticky; bottom: 0; min-height: 74px; padding: 10px 8px calc(10px + env(safe-area-inset-bottom)); }
-  .controls button { min-height: 40px; padding: 9px 11px; }
-  .controls input[type="range"] { width: min(220px, 100%); }
+  .controls { grid-row: 3; min-height: 0; flex: 0 0 auto; padding: 6px 7px; border-radius: 8px; gap: 5px; box-shadow: 0 -8px 26px rgba(0,0,0,.24); }
+  .turnNotice { width: 100%; text-align: center; font-size: 11px; line-height: 1; }
+  .actionButtons { width: 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .actionButtons button { min-height: 38px; padding: 7px 4px; font-size: 12px; font-weight: 800; }
+  .wagerControls { width: 100%; display: grid; grid-template-columns: repeat(3, 1fr) minmax(82px, 1.1fr); gap: 5px; }
+  .wagerControls button { min-height: 28px; padding: 5px 4px; font-size: 10px; }
+  .wagerControls input[type="range"] { grid-column: 1 / 4; width: 100%; padding: 0; height: 28px; }
+  .wagerControls input[type="number"] { width: 100%; height: 30px; padding: 4px 6px; font-size: 13px; }
+  .rebuyControl { gap: 6px; font-size: 12px; }
+  .rebuyControl input { height: 34px; width: 104px; padding: 6px 8px; }
+  .rebuyControl button { min-height: 36px; padding: 7px 10px; }
 }
 
 @media (max-width: 430px) {
   .brand span { font-size: 13px; }
   .brand h1 { font-size: 30px; }
-  .tableLayout { grid-template-rows: minmax(0, 1fr) auto auto; }
-  .felt { width: min(100%, 360px); height: min(61svh, 540px); min-height: 430px; }
-  .playerSeat { width: 92px; min-height: 88px; font-size: 10px; gap: 3px; }
-  .heroSeat { width: 106px; }
-  .playerSeat .miniCards { gap: 4px; }
-  .playerSeat .card { width: 28px; height: 40px; }
-  .cards { gap: 5px; }
-  .card { width: 34px; height: 50px; }
-  .pot { padding: 6px 10px; font-size: 13px; }
-  .assignment { width: min(300px, 88%); }
+  .felt { width: min(100%, 365px); }
+  .board { inset: 38% 5% 30%; }
+  .assignment { width: min(300px, 90%); }
   .assignmentZone > div:first-child { display: grid; gap: 2px; }
   .sideHeader button { min-height: 36px; padding: 7px 9px; }
 }
 
 @media (max-width: 380px) {
-  .felt { width: min(100%, 330px); height: min(60svh, 500px); min-height: 400px; }
-  .playerSeat { width: 88px; min-height: 88px; }
-  .heroSeat { width: 104px; }
-  .playerSeat .avatar { width: 28px; height: 28px; }
-  .playerSeat .card { width: 25px; height: 36px; }
-  .card { width: 31px; height: 46px; }
-  .heroHandTray { width: min(264px, 74%); }
+  .room { padding-left: 6px; padding-right: 6px; }
+  .roomTop h1 { font-size: 13px; }
+  .roomTop > button, .roomTools button { font-size: 11px; padding: 5px 6px; }
+  .felt { width: min(100%, 338px); }
+  .playerSeat { width: 76px; }
+  .heroSeat { width: 88px; }
+  .playerSeat .avatar { width: 22px; height: 22px; }
+  .card { width: 30px; height: 43px; }
+  .heroHandTray { width: min(100%, 330px); }
   .heroHandTray .card { width: 23px; height: 33px; }
+  .actionButtons button { font-size: 11px; }
 }
