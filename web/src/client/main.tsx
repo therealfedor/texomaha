@@ -123,18 +123,25 @@ function LobbyScreen({ lobby, api, onLobby, onRoom }: { lobby: Lobby | null; api
   if (!lobby) return <div className="loading">Loading Texomaha...</div>;
   return (
     <section className="lobby">
-      <header><h1>TEXOMAHA</h1><p>{lobby.user.username} · {lobby.user.stats.handsWon}/{lobby.user.stats.handsPlayed} hands won</p><button onClick={() => { localStorage.removeItem(tokenKey); location.reload(); }}>Logout</button></header>
+      <header className="lobbyHeader">
+        <div className="lobbyMark">T</div>
+        <div className="lobbyTitleBox">
+          <h1>TEXOMAHA</h1>
+          <p>{lobby.user.username} · {lobby.user.stats.handsWon}/{lobby.user.stats.handsPlayed} hands won</p>
+        </div>
+        <button onClick={() => { localStorage.removeItem(tokenKey); location.reload(); }}>Logout</button>
+      </header>
       <div className="lobbyGrid">
-        <section className="panel feature">
+        <section className="panel feature" id="play">
           <h2>Play With Friends</h2>
           <button className="primary" onClick={() => setCreating(true)}>Create Game</button>
           {creating && <CreateGame api={api} onRoom={onRoom} />}
         </section>
-        <section className="panel">
+        <section className="panel" id="games">
           <h2>Your Games</h2>
           {lobby.games.length === 0 ? <Empty text="No active games." action="Create Game" onClick={() => setCreating(true)} /> : lobby.games.map((game) => <button className="row" key={game.id} onClick={() => onRoom(game)}>{game.status} · {game.players.length}/{game.settings.maxPlayers} players</button>)}
         </section>
-        <section className="panel">
+        <section className="panel" id="friends">
           <h2>Friends</h2>
           <div className="search"><input placeholder="Add friend by username" value={search} onChange={(event) => findPlayers(event.target.value)} /></div>
           {results.map((user) => <button className="row" key={user.id} onClick={async () => { await api.post("/api/friends/request", { toUserId: user.id }); setResults([]); setSearch(""); }}>{user.username}<span>Send request</span></button>)}
@@ -142,8 +149,14 @@ function LobbyScreen({ lobby, api, onLobby, onRoom }: { lobby: Lobby | null; api
           {lobby.outgoingRequests.map((request) => <div className="row muted" key={request.id}>{request.toUser.username}<span>Request sent</span></div>)}
           {lobby.friends.length === 0 ? <Empty text="You don't have any friends yet." action="Add Friend" /> : lobby.friends.map((friend) => <div className="row" key={friend.id}><span><Status status={friend.status} />{friend.username}</span><span>{friend.status.replace("_", " ")}</span></div>)}
         </section>
-        <section className="panel profile"><h2>Profile</h2><div className="avatar big">{lobby.user.avatar}</div><strong>{lobby.user.username}</strong></section>
+        <section className="panel profile" id="profile"><h2>Profile</h2><div className="avatar big">{lobby.user.avatar}</div><strong>{lobby.user.username}</strong></section>
       </div>
+      <nav className="bottomNav" aria-label="Lobby">
+        <a href="#play">Play</a>
+        <a href="#games">Games</a>
+        <a href="#friends">Friends</a>
+        <a href="#profile">Profile</a>
+      </nav>
     </section>
   );
 }
