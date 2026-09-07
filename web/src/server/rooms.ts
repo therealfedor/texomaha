@@ -150,6 +150,20 @@ export function leaveRoom(room: GameRoom, user: StoredUser): GameRoom {
   return room;
 }
 
+export function deleteRoom(room: GameRoom, user: StoredUser): GameRoom {
+  if (room.hostUserId !== user.id) throw new Error("Only the host can delete this game.");
+  room.status = "ENDED";
+  room.players.forEach((player) => {
+    player.connected = false;
+    player.left = true;
+  });
+  database.users.forEach((storedUser) => {
+    if (room.players.some((player) => player.userId === storedUser.id)) storedUser.status = "online";
+  });
+  touch(room);
+  return room;
+}
+
 export function clientRoomView(room: GameRoom, userId: string): ClientRoomView {
   room.players.forEach(normalizePlayer);
   const shownCards: Record<string, { texas: GamePlayer["holeCards"]; omaha: GamePlayer["holeCards"] }> = {};
