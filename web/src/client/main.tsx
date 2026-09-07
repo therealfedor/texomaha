@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { io, Socket } from "socket.io-client";
+import { evaluateOmahaHand, evaluateTexasHand } from "../shared/handEvaluator";
 import type { Card, ClientRoomView, LegalActions, PublicUser, TableSettings } from "../shared/types";
 import "./styles.css";
 
@@ -250,8 +251,10 @@ function PokerTable({ room, heroId, legal, muted, api, onRoom }: { room: ClientR
   const heroPlayer = room.players.find((player) => player.userId === heroId);
   const visualPlayers = heroIndex >= 0 ? [...room.players.slice(heroIndex), ...room.players.slice(0, heroIndex)] : room.players;
   const pot = room.players.reduce((sum, player) => sum + player.totalCommitted, 0);
+  const handStrength = getHeroHandStrength(room);
   const minWager = legal ? Math.min(legal.maxAmount, Math.max(legal.minBet, legal.minRaiseTo)) : 0;
   const wagerAmount = Math.min(Math.max(amount, minWager), legal?.maxAmount ?? amount);
+  const desktopSide = !isMobileViewport();
   useEffect(() => {
     if (legal) setAmount(Math.min(legal.maxAmount, Math.max(legal.minBet, legal.minRaiseTo)));
   }, [legal?.maxAmount, legal?.minBet, legal?.minRaiseTo]);
@@ -309,16 +312,16 @@ function PokerTable({ room, heroId, legal, muted, api, onRoom }: { room: ClientR
         </div>
       </div>
       <aside className={`side panel ${chatOpen || historyOpen ? "open" : ""}`}>
-        <div className="sideHeader"><h2>Hand #{room.hand?.handNumber}</h2></div>
-        {(historyOpen || !isMobileViewport()) && <div className="history">{room.hand?.history.slice(-16).map((line, index) => <p key={index}>{line}</p>)}</div>}
-        <div className="sideHeader chatHeader"><h2>Chat</h2><button type="button" onClick={toggleChat}>{chatOpen ? "Hide" : "Show"}</button></div>
-        {(chatOpen || !isMobileViewport()) && <div className="chatPanel">
+        <div className="sideHeader"><h2>{historyOpen ? `Hand #${room.hand?.handNumber}` : chatOpen ? "Chat" : `Hand #${room.hand?.handNumber}`}</h2><button type="button" className="closeSheet" onClick={() => { setChatOpen(false); setHistoryOpen(false); }}>Close</button></div>
+        {(historyOpen || desktopSide) && <div className="history">{room.hand?.history.slice(-16).map((line, index) => <p key={index}>{line}</p>)}</div>}
+        {desktopSide && <div className="sideHeader chatHeader"><h2>Chat</h2><button type="button" onClick={toggleChat}>{chatOpen ? "Hide" : "Show"}</button></div>}
+        {(chatOpen || desktopSide) && <div className="chatPanel">
           <div className="chat">{room.chat.slice(-20).map((message) => <p key={message.id}><strong>{message.username}</strong>: {message.message}</p>)}</div>
           {chatError && <div className="chatError" role="alert">{chatError}</div>}
           <form className="chatForm" onSubmit={sendChat}><input value={chat} onChange={(event) => setChat(event.target.value)} maxLength={240} placeholder="Message" autoComplete="off" /><button disabled={!chat.trim()}>Send</button></form>
         </div>}
       </aside>
-      {room.hand && room.hand.street !== "ASSIGNING" && <HeroHandTray texasCards={room.hand.heroTexasCards} omahaCards={room.hand.heroOmahaCards} />}
+      {room.hand && room.hand.street !== "ASSIGNING" && <HeroHandTray texasCards={room.hand.heroTexasCards} omahaCards={room.hand.heroOmahaCards} strength={handStrength} />}
       <div className="controls panel">
         {heroPlayer && heroPlayer.stack <= 0 ? <RebuyControl room={room} api={api} onRoom={onRoom} /> : room.hand?.street === "ASSIGNING" ? <span>Assign 2 cards to Texas and 4 cards to Omaha.</span> : room.status === "HAND_COMPLETE" ? <button className="primary" onClick={async () => onRoom(await api.post(`/api/rooms/${room.id}/next-hand`, {}))}>Next Hand</button> : legal ? <>
           <strong className="turnNotice">YOUR TURN</strong>
@@ -342,9 +345,10 @@ function PokerTable({ room, heroId, legal, muted, api, onRoom }: { room: ClientR
   );
 }
 
-function HeroHandTray({ texasCards, omahaCards }: { texasCards: Card[]; omahaCards: Card[] }) {
+function HeroHandTray({ texasCards, omahaCards, strength }: { texasCards: Card[]; omahaCards: Card[]; strength: string }) {
   return (
     <div className="heroHandTray">
+      <div className="handStrength">{strength}</div>
       <div className="handGroup texasGroup"><span>Texas</span><div>{texasCards.map((card) => <CardView key={card} card={card} />)}</div></div>
       <div className="handGroup omahaGroup"><span>Omaha</span><div>{omahaCards.map((card) => <CardView key={card} card={card} />)}</div></div>
     </div>
@@ -464,6 +468,22 @@ function usePortraitTable() {
     return () => query.removeEventListener("change", update);
   }, []);
   return portraitTable;
+}
+
+function getHeroHandStrength(room: ClientRoomView) {
+  const hand = room.hand;
+  if (!hand || hand.heroTexasCards.length !== 2 || hand.communityCards.length < 3) return "Waiting for flop";
+  const texas = safeHandLabel(() => evaluateTexasHand(hand.heroTexasCards, hand.communityCards).label);
+  const omaha = hand.heroOmahaCards.length === 4 ? safeHandLabel(() => evaluateOmahaHand(hand.heroOmahaCards, hand.communityCards).label) : "Omaha pending";
+  return `Texas ${texas} · Omaha ${omaha}`;
+}
+
+function safeHandLabel(resolve: () => string) {
+  try {
+    return resolve();
+  } catch {
+    return "Pending";
+  }
 }
 
 function isMobileViewport() {
