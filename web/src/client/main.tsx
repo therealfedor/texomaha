@@ -329,8 +329,8 @@ function PokerTable({ room, heroId, legal, muted, api, onRoom }: { room: ClientR
           <div className="pot">Pot {pot}</div>
           <div className="cards">{[0, 1, 2, 3, 4].map((index) => <CardView key={index} card={room.hand?.communityCards[index]} />)}</div>
           <div className="street">{room.hand?.street}</div>
-          {room.hand?.winners.map((winner) => <div className="winner" key={`${winner.userId}-${winner.amount}`}>{room.players.find((player) => player.userId === winner.userId)?.username} won {winner.amount} · {winner.label}</div>)}
         </div>
+        {room.hand?.winners.length ? <div className="tableMessage">{room.hand.winners.map((winner) => <div className="winner" key={`${winner.userId}-${winner.amount}`}>{room.players.find((player) => player.userId === winner.userId)?.username} won {winner.amount} · {winner.label}</div>)}</div> : null}
         {room.hand?.street === "ASSIGNING" && <AssignmentPanel room={room} onConfirm={confirmAssignment} />}
         {room.hand?.winners.length ? <ShowdownSplits room={room} /> : null}
         <div className="tableUtilities">
@@ -348,25 +348,29 @@ function PokerTable({ room, heroId, legal, muted, api, onRoom }: { room: ClientR
           <form className="chatForm" onSubmit={sendChat}><input value={chat} onChange={(event) => setChat(event.target.value)} maxLength={240} placeholder="Message" autoComplete="off" /><button disabled={!chat.trim()}>Send</button></form>
         </div>}
       </aside>
-      {room.hand && room.hand.street !== "ASSIGNING" && <HeroHandTray texasCards={room.hand.heroTexasCards} omahaCards={room.hand.heroOmahaCards} strength={handStrength} />}
+      <HeroHandTray texasCards={room.hand?.street !== "ASSIGNING" ? room.hand?.heroTexasCards ?? [] : []} omahaCards={room.hand?.street !== "ASSIGNING" ? room.hand?.heroOmahaCards ?? [] : []} strength={room.hand?.street !== "ASSIGNING" ? handStrength : "Assign cards to begin"} />
       <div className="controls panel">
-        {heroPlayer && heroPlayer.stack <= 0 ? <RebuyControl room={room} api={api} onRoom={onRoom} /> : room.hand?.street === "ASSIGNING" ? <span>Assign 2 cards to Texas and 4 cards to Omaha.</span> : room.status === "HAND_COMPLETE" ? <button className="primary" onClick={async () => onRoom(await api.post(`/api/rooms/${room.id}/next-hand`, {}))}>Next Hand</button> : legal ? <>
-          <strong className="turnNotice">YOUR TURN</strong>
-          <div className="actionButtons">
-            {legal.canFold && <button onClick={() => act("fold")}>Fold</button>}
-            {legal.canCheck && <button onClick={() => act("check")}>Check</button>}
-            {legal.callAmount > 0 && <button onClick={() => act("call")}>Call {legal.callAmount}</button>}
-            <button className="primary" onClick={() => act(legal.callAmount > 0 ? "raise" : "bet", wagerAmount)}>{legal.callAmount > 0 ? "Raise" : "Bet"} {wagerAmount}</button>
-            <button onClick={() => act("all-in")}>All In</button>
-          </div>
-          <div className="wagerControls">
-            <button onClick={() => setAmount(Math.min(legal.maxAmount, Math.max(minWager, Math.floor(pot / 2))))}>1/2 Pot</button>
-            <button onClick={() => setAmount(Math.min(legal.maxAmount, Math.max(minWager, Math.floor(pot * .75))))}>3/4 Pot</button>
-            <button onClick={() => setAmount(Math.min(legal.maxAmount, Math.max(minWager, pot)))}>Pot</button>
-            <input type="range" min={minWager} max={legal.maxAmount} value={wagerAmount} onChange={(event) => setAmount(Number(event.target.value))} />
-            <input type="number" min={minWager} max={legal.maxAmount} value={wagerAmount} onChange={(event) => setAmount(Number(event.target.value))} />
-          </div>
-        </> : <span>Waiting for action...</span>}
+        <div className="controlStatus">
+          {heroPlayer && heroPlayer.stack <= 0 ? "Out of chips" : room.hand?.street === "ASSIGNING" ? "Assign 2 Texas and 4 Omaha cards" : room.status === "HAND_COMPLETE" ? "Hand complete" : legal ? "YOUR TURN" : "Waiting for action"}
+        </div>
+        <div className="controlMain">
+          {heroPlayer && heroPlayer.stack <= 0 ? <RebuyControl room={room} api={api} onRoom={onRoom} /> : room.status === "HAND_COMPLETE" ? <button className="primary" onClick={async () => onRoom(await api.post(`/api/rooms/${room.id}/next-hand`, {}))}>Next Hand</button> : legal ? <>
+            <div className="actionButtons">
+              {legal.canFold && <button onClick={() => act("fold")}>Fold</button>}
+              {legal.canCheck && <button onClick={() => act("check")}>Check</button>}
+              {legal.callAmount > 0 && <button onClick={() => act("call")}>Call {legal.callAmount}</button>}
+              <button className="primary" onClick={() => act(legal.callAmount > 0 ? "raise" : "bet", wagerAmount)}>{legal.callAmount > 0 ? "Raise" : "Bet"} {wagerAmount}</button>
+              <button onClick={() => act("all-in")}>All In</button>
+            </div>
+            <div className="wagerControls">
+              <button onClick={() => setAmount(Math.min(legal.maxAmount, Math.max(minWager, Math.floor(pot / 2))))}>1/2 Pot</button>
+              <button onClick={() => setAmount(Math.min(legal.maxAmount, Math.max(minWager, Math.floor(pot * .75))))}>3/4 Pot</button>
+              <button onClick={() => setAmount(Math.min(legal.maxAmount, Math.max(minWager, pot)))}>Pot</button>
+              <input type="range" min={minWager} max={legal.maxAmount} value={wagerAmount} onChange={(event) => setAmount(Number(event.target.value))} />
+              <input type="number" min={minWager} max={legal.maxAmount} value={wagerAmount} onChange={(event) => setAmount(Number(event.target.value))} />
+            </div>
+          </> : <div className="passiveControl">{room.hand?.street === "ASSIGNING" ? "Lock your card split on the table." : "No action available."}</div>}
+        </div>
       </div>
     </div>
   );
