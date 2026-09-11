@@ -324,11 +324,13 @@ function PokerTable({ room, heroId, legal, muted, api, onRoom }: { room: ClientR
   return (
     <div className="tableLayout">
       <div className="felt">
-        {visualPlayers.map((player, index) => {
-          const shown = room.hand?.shownCards[player.userId];
-          const heroCards = room.hand?.street === "ASSIGNING" ? room.hand.heroCards : [];
-          return <PlayerSeat key={player.userId} player={player} active={room.hand?.actingSeat === player.seat} hero={player.userId === heroId} portraitTable={portraitTable} cards={player.userId === heroId ? heroCards : shown ? [...shown.texas, ...shown.omaha] : undefined} index={index} count={visualPlayers.length} />;
-        })}
+        <div className={`seatLayer count${visualPlayers.length}`}>
+          {visualPlayers.map((player, index) => {
+            const shown = room.hand?.shownCards[player.userId];
+            const heroCards = room.hand?.street === "ASSIGNING" ? room.hand.heroCards : [];
+            return <PlayerSeat key={player.userId} player={player} active={room.hand?.actingSeat === player.seat} hero={player.userId === heroId} portraitTable={portraitTable} cards={portraitTable ? undefined : player.userId === heroId ? heroCards : shown ? [...shown.texas, ...shown.omaha] : undefined} index={index} count={visualPlayers.length} />;
+          })}
+        </div>
         <div className="board">
           <div className="pot">Pot {pot}</div>
           <div className="cards">{[0, 1, 2, 3, 4].map((index) => <CardView key={index} card={room.hand?.communityCards[index]} />)}</div>
@@ -477,7 +479,7 @@ function PlayerSeat({ player, active, hero, portraitTable, cards, index, count }
   const xRadius = portraitTable ? 35 : 43;
   const yRadius = portraitTable ? 43 : 36;
   const style = { left: `${50 + Math.cos(angle) * xRadius}%`, top: `${50 + Math.sin(angle) * yRadius}%` };
-  return <div className={`playerSeat ${active ? "active" : ""} ${hero ? "heroSeat" : ""}`} style={style}><div className="avatar">{player.avatar}</div><strong>{player.username}</strong><span>{player.stack} chips</span><small>{active && hero ? "YOUR TURN" : player.folded ? "Folded" : player.allIn ? "All in" : player.connected ? "Online" : "Reconnecting"}</small><div className="miniCards">{(cards ?? ["", ""]).map((card, cardIndex) => <CardView key={cardIndex} card={card} hidden={!card} />)}</div>{player.currentBet > 0 && <b className="bet">{player.currentBet}</b>}</div>;
+  return <div className={`playerSeat seat${index} ${active ? "active" : ""} ${hero ? "heroSeat" : ""}`} style={portraitTable ? undefined : style}><div className="avatar">{player.avatar}</div><strong>{player.username}</strong><span>{player.stack} chips</span><small>{active && hero ? "YOUR TURN" : player.folded ? "Folded" : player.allIn ? "All in" : player.connected ? "Online" : "Reconnecting"}</small><div className="miniCards">{(cards ?? ["", ""]).map((card, cardIndex) => <CardView key={cardIndex} card={card} hidden={!card} />)}</div>{player.currentBet > 0 && <b className="bet">{player.currentBet}</b>}</div>;
 }
 
 function CardView({ card, hidden = false }: { card?: string; hidden?: boolean }) {

@@ -82,6 +82,7 @@ h1 { letter-spacing: 0; }
 .side { grid-column: 2; grid-row: 1 / 4; }
 .felt { position: relative; width: 100%; height: 100%; min-height: 0; max-height: none; border-radius: 999px; background: radial-gradient(circle at center, #22614c 0, #174936 58%, #0b261d 72%); border: 18px solid #33251a; box-shadow: inset 0 0 0 8px #936e36, 0 24px 80px rgba(0, 0, 0, .55); overflow: hidden; }
 .felt::after { content: ""; position: absolute; inset: 11%; border: 1px solid rgba(255,255,255,.12); border-radius: 48%; pointer-events: none; }
+.seatLayer { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
 .board { position: absolute; left: 50%; top: 48%; width: min(72%, 520px); height: 138px; transform: translate(-50%, -50%); display: grid; grid-template-rows: 32px 78px 20px; justify-items: center; align-items: center; gap: 4px; z-index: 1; overflow: hidden; }
 .cards, .miniCards { display: flex; gap: 8px; }
 .card { width: 58px; height: 78px; border-radius: 6px; background: #f9faf6; color: #141414; display: grid; align-content: space-between; padding: 7px; font-weight: 900; box-shadow: 0 8px 18px rgba(0,0,0,.28); animation: deal .18s ease-out; }
@@ -169,20 +170,35 @@ h1 { letter-spacing: 0; }
   .copyStatus { position: fixed; z-index: 20; top: calc(46px + env(safe-area-inset-top)); left: 10px; right: 10px; margin: 0; font-size: 12px; padding: 7px 9px; }
   .tableLayout { flex: 1 1 auto; height: auto; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr) 76px 132px; gap: 6px; overflow: hidden; }
   .felt, .heroHandTray, .controls { grid-column: 1; }
-  .felt { align-self: stretch; aspect-ratio: auto; width: min(100%, 420px); height: 100%; min-height: 0; max-height: none; margin: 0 auto; border-width: clamp(5px, 1.8vw, 8px); border-radius: 46% / 50%; box-shadow: inset 0 0 0 4px #936e36, 0 12px 34px rgba(0, 0, 0, .46); overflow: hidden; }
-  .felt::after { inset: 12% 10%; border-radius: 45% / 50%; }
-  .playerSeat { width: clamp(74px, 23vw, 100px); min-height: auto; font-size: clamp(9px, 2.7vw, 11px); gap: 1px; padding: 5px 6px; border-radius: 7px; }
-  .heroSeat { width: clamp(88px, 28vw, 116px); }
-  .playerSeat .avatar { width: 24px; height: 24px; font-size: 11px; }
+  .felt { align-self: stretch; aspect-ratio: auto; width: min(100%, 396px); height: 100%; min-height: 0; max-height: none; margin: 0 auto; border-width: 5px; border-radius: 40% / 48%; box-shadow: inset 0 0 0 3px #936e36, 0 12px 34px rgba(0, 0, 0, .46); overflow: hidden; }
+  .felt::after { inset: 24% 13% 18%; border-radius: 44% / 50%; }
+  .seatLayer { inset: 8px 6px; display: grid; grid-template-columns: 76px minmax(0, 1fr) 76px; grid-template-rows: 54px minmax(112px, 1fr) 58px; grid-template-areas: "topLeft top topRight" "midLeft board midRight" "bottomLeft bottom bottomRight"; align-items: center; justify-items: center; pointer-events: none; }
+  .playerSeat { position: static; transform: none; width: 72px; height: 50px; min-height: 0; display: grid; grid-template-columns: 22px minmax(0, 1fr); grid-template-rows: 16px 15px 13px; align-items: center; justify-items: start; column-gap: 4px; row-gap: 0; padding: 4px; border-radius: 7px; font-size: 9px; pointer-events: auto; }
+  .heroSeat { width: 84px; height: 54px; }
+  .playerSeat .avatar { grid-row: 1 / 4; width: 22px; height: 22px; font-size: 10px; }
   .playerSeat strong, .playerSeat span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .playerSeat small { min-height: 12px; font-size: 9px; }
-  .miniCards { gap: 3px; }
-  .playerSeat .card { width: 19px; height: 27px; padding: 2px; }
-  .playerSeat .card span { font-size: 9px; }
-  .card { width: clamp(31px, 9.2vw, 39px); height: clamp(45px, 13vw, 55px); padding: 4px; border-radius: 5px; }
-  .card span { font-size: clamp(14px, 4.3vw, 18px); }
-  .cards { gap: clamp(3px, 1.4vw, 6px); }
-  .board { left: 50%; top: 48%; width: 86%; height: 106px; transform: translate(-50%, -50%); grid-template-rows: 25px 55px 18px; gap: 3px; }
+  .playerSeat small { min-height: 0; font-size: 8px; line-height: 1; color: #9eaaa4; }
+  .miniCards { display: none; }
+  .seat0 { grid-area: bottom; }
+  .seat1 { grid-area: bottomRight; }
+  .seat2 { grid-area: topRight; }
+  .seat3 { grid-area: top; }
+  .seat4 { grid-area: topLeft; }
+  .seat5 { grid-area: bottomLeft; }
+  .seatLayer.count2 .seat1 { grid-area: top; }
+  .seatLayer.count3 .seat1 { grid-area: midRight; }
+  .seatLayer.count3 .seat2 { grid-area: midLeft; }
+  .seatLayer.count4 .seat1 { grid-area: midRight; }
+  .seatLayer.count4 .seat2 { grid-area: top; }
+  .seatLayer.count4 .seat3 { grid-area: midLeft; }
+  .seatLayer.count5 .seat1 { grid-area: bottomRight; }
+  .seatLayer.count5 .seat2 { grid-area: topRight; }
+  .seatLayer.count5 .seat3 { grid-area: topLeft; }
+  .seatLayer.count5 .seat4 { grid-area: bottomLeft; }
+  .card { width: clamp(27px, 7.3vw, 34px); height: clamp(38px, 10.2vw, 48px); padding: 3px; border-radius: 5px; }
+  .card span { font-size: clamp(12px, 3.7vw, 16px); }
+  .cards { width: 100%; justify-content: center; gap: clamp(3px, 1vw, 5px); flex-wrap: nowrap; }
+  .board { left: 50%; top: 49%; width: min(255px, 70vw); height: 104px; transform: translate(-50%, -50%); grid-template-rows: 24px 52px 18px; gap: 3px; z-index: 3; }
   .pot { padding: 5px 9px; font-size: 12px; }
   .street, .winner { font-size: 11px; text-align: center; }
   .tableMessage { top: 18%; width: min(270px, 76%); min-height: 30px; padding: 5px 8px; font-size: 11px; }
@@ -193,9 +209,9 @@ h1 { letter-spacing: 0; }
   .assignmentCards { min-height: 58px; gap: 5px; }
   .assignmentCards .card { width: 27px; height: 40px; }
   .assignment .primary { min-height: 34px; padding: 7px 10px; }
-  .heroHandTray { grid-row: 2; position: relative; left: auto; bottom: auto; transform: none; width: min(100%, 390px); height: 76px; margin: 0 auto; display: grid; grid-template-columns: 88px 88px minmax(0, 1fr); gap: 5px; padding: 5px 7px; border-radius: 7px; background: rgba(8, 12, 11, .92); }
-  .handStrength { height: 42px; min-width: 0; padding: 3px 5px; font-size: 9px; line-height: 1.15; }
-  .heroHandTray .card { width: clamp(25px, 7vw, 31px); height: clamp(36px, 10vw, 43px); padding: 3px; }
+  .heroHandTray { grid-row: 2; position: relative; left: auto; bottom: auto; transform: none; width: min(100%, 390px); height: 76px; margin: 0 auto; display: grid; grid-template-columns: 78px 82px minmax(0, 1fr); gap: 5px; padding: 5px 7px; border-radius: 7px; background: rgba(8, 12, 11, .92); }
+  .handStrength { height: 42px; min-width: 0; padding: 3px 5px; font-size: 8px; line-height: 1.15; }
+  .heroHandTray .card { width: clamp(23px, 6.7vw, 30px); height: clamp(33px, 9.2vw, 42px); padding: 3px; }
   .handGroup { grid-template-columns: 1fr; align-items: center; justify-items: center; gap: 3px; overflow: hidden; }
   .handGroup > div { justify-content: center; gap: 3px; }
   .handGroup span { font-size: 10px; }
@@ -219,7 +235,7 @@ h1 { letter-spacing: 0; }
   .controlStatus { font-size: 10px; height: 17px; line-height: 17px; }
   .controlMain { height: 98px; }
   .actionButtons { width: 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-  .actionButtons button { min-height: 38px; padding: 7px 4px; font-size: 12px; font-weight: 800; }
+  .actionButtons button { min-height: 36px; padding: 6px 4px; font-size: 11px; font-weight: 800; }
   .wagerControls { width: 100%; display: grid; grid-template-columns: repeat(3, 1fr) minmax(82px, 1.1fr); gap: 5px; }
   .wagerControls button { min-height: 28px; padding: 5px 4px; font-size: 10px; }
   .wagerControls input[type="range"] { grid-column: 1 / 4; width: 100%; padding: 0; height: 28px; }
@@ -418,7 +434,6 @@ h1 { letter-spacing: 0; }
 @media (max-width: 430px) {
   .brand span { font-size: 13px; }
   .brand h1 { font-size: 30px; }
-  .felt { width: min(100%, 365px); }
   .assignment { width: min(300px, 90%); }
   .assignmentZone > div:first-child { display: grid; gap: 2px; }
   .sideHeader button { min-height: 36px; padding: 7px 9px; }
@@ -428,12 +443,9 @@ h1 { letter-spacing: 0; }
   .room { padding-left: 6px; padding-right: 6px; }
   .roomTop h1 { font-size: 13px; }
   .roomTop > button, .roomTools button { font-size: 11px; padding: 5px 6px; }
-  .felt { width: min(100%, 338px); }
-  .playerSeat { width: 76px; }
-  .heroSeat { width: 88px; }
-  .playerSeat .avatar { width: 22px; height: 22px; }
-  .card { width: 30px; height: 43px; }
   .heroHandTray { width: min(100%, 330px); }
-  .heroHandTray .card { width: 23px; height: 33px; }
-  .actionButtons button { font-size: 11px; }
+  .seatLayer { grid-template-columns: 70px minmax(0, 1fr) 70px; }
+  .playerSeat { width: 68px; }
+  .heroSeat { width: 78px; }
+  .actionButtons button { font-size: 10px; }
 }
