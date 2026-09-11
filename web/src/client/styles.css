@@ -51,6 +51,10 @@ h1 { letter-spacing: 0; }
 .gameOpen span { color: #aebbb5; font-size: 12px; overflow-wrap: anywhere; }
 .gameActions { display: flex; align-items: stretch; gap: 6px; }
 .gameActions button { padding: 8px 10px; }
+.smallAction { min-width: 58px; background: #151d1a; border: 1px solid #34443e; color: #cbd7d1; }
+.editActions { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px; border: 1px solid #493436; border-radius: 7px; background: rgba(72, 30, 30, .22); }
+.editActions span { color: #d0aaa6; font-size: 12px; font-weight: 800; text-transform: uppercase; }
+.editActions .danger { min-height: 34px; padding: 7px 10px; }
 .danger { background: #5b2323; }
 .danger:hover { background: #743030; }
 .muted { color: #97a39e; }
@@ -372,6 +376,11 @@ h1 { letter-spacing: 0; }
 
   .gameActions button:only-child {
     grid-column: 1 / -1;
+  }
+
+  .editActions {
+    display: grid;
+    grid-template-columns: 1fr auto;
   }
 
   .row span {

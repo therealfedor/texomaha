@@ -4,6 +4,8 @@ import { texomahaRules } from "../shared/texomahaRules";
 import type { ClientRoomView, GamePlayer, GameRoom, TableSettings } from "../shared/types";
 import { database, persist, type StoredUser } from "./store";
 
+const botPrefix = "bot:";
+
 export function createRoom(host: StoredUser, settings: TableSettings): GameRoom {
   const safeSettings = {
     startingStack: clampInt(settings.startingStack, 200, 100000),
@@ -70,6 +72,7 @@ export function startRoomGame(room: GameRoom, user: StoredUser): GameRoom {
   room.status = "IN_PROGRESS";
   room.players.forEach(normalizePlayer);
   room.hand = startHand(room.players, room.settings, room.hand?.dealerSeat ?? -1, (room.hand?.handNumber ?? 0) + 1);
+  advanceBots(room);
   touch(room);
   return room;
 }
@@ -79,6 +82,7 @@ export function nextHand(room: GameRoom, user: StoredUser): GameRoom {
   room.status = "IN_PROGRESS";
   room.players.forEach(normalizePlayer);
   room.hand = startHand(room.players, room.settings, room.hand?.dealerSeat ?? -1, (room.hand?.handNumber ?? 0) + 1);
+  advanceBots(room);
   touch(room);
   return room;
 }
@@ -87,13 +91,8 @@ export function playerAction(room: GameRoom, user: StoredUser, type: string, amo
   if (!room.hand || room.status !== "IN_PROGRESS") throw new Error("No hand is in progress.");
   room.players.forEach(normalizePlayer);
   room.hand = applyAction(room.players, room.hand, room.settings, user.id, type, amount);
-  if (room.hand.winners.length > 0) {
-    room.status = "HAND_COMPLETE";
-    database.users.forEach((storedUser) => {
-      if (room.players.some((player) => player.userId === storedUser.id)) storedUser.stats.handsPlayed += 1;
-      if (room.hand?.winners.some((winner) => winner.userId === storedUser.id)) storedUser.stats.handsWon += 1;
-    });
-  }
+  finalizeHandIfNeeded(room);
+  advanceBots(room);
   touch(room);
   return room;
 }
@@ -102,6 +101,35 @@ export function assignCards(room: GameRoom, user: StoredUser, texasCards: GamePl
   if (!room.hand || room.status !== "IN_PROGRESS") throw new Error("No hand is in progress.");
   room.players.forEach(normalizePlayer);
   room.hand = assignTexomahaCards(room.players, room.hand, room.settings, user.id, texasCards, omahaCards);
+  advanceBots(room);
+  touch(room);
+  return room;
+}
+
+export function addBotToRoom(room: GameRoom, user: StoredUser): GameRoom {
+  if (room.hostUserId !== user.id) throw new Error("Only the host can add a bot.");
+  if (room.status !== "WAITING") throw new Error("Bots can only be added before the game starts.");
+  if (room.players.length >= room.settings.maxPlayers) throw new Error("Game is full.");
+  const botCount = room.players.filter((player) => player.userId.startsWith(botPrefix)).length + 1;
+  const usedSeats = new Set(room.players.map((candidate) => candidate.seat));
+  const seat = Array.from({ length: room.settings.maxPlayers }, (_, index) => index).find((index) => !usedSeats.has(index)) ?? room.players.length;
+  room.players.push({
+    userId: `${botPrefix}${room.id}:${botCount}`,
+    username: botCount === 1 ? "TexBot" : `TexBot ${botCount}`,
+    avatar: "TB",
+    seat,
+    stack: room.settings.startingStack,
+    currentBet: 0,
+    totalCommitted: 0,
+    folded: false,
+    allIn: false,
+    connected: true,
+    left: false,
+    holeCards: [],
+    texasCards: [],
+    omahaCards: [],
+    assignmentReady: false
+  });
   touch(room);
   return room;
 }
@@ -135,7 +163,7 @@ export function leaveRoom(room: GameRoom, user: StoredUser): GameRoom {
   player.left = true;
   user.status = "online";
   if (room.hostUserId === user.id) {
-    const nextHost = room.players.find((candidate) => !candidate.left);
+    const nextHost = room.players.find((candidate) => !candidate.left && !isBot(candidate));
     if (nextHost) room.hostUserId = nextHost.userId;
     else room.status = "ENDED";
   }
@@ -208,6 +236,51 @@ export function legalActions(room: GameRoom, user: StoredUser) {
   const player = room.players.find((candidate) => candidate.userId === user.id);
   if (!player || !room.hand) return null;
   return getLegalActions(player, room.hand, room.settings);
+}
+
+export function advanceBots(room: GameRoom): GameRoom {
+  if (!room.hand || room.status !== "IN_PROGRESS") return room;
+  room.players.forEach(normalizePlayer);
+  for (let step = 0; step < 60; step += 1) {
+    if (!room.hand || room.status !== "IN_PROGRESS") break;
+    if (room.hand.street === "ASSIGNING") {
+      const bot = room.players.find((player) => isBot(player) && !player.left && !player.folded && !player.assignmentReady);
+      if (!bot) break;
+      room.hand = assignTexomahaCards(room.players, room.hand, room.settings, bot.userId, bot.holeCards.slice(0, 2), bot.holeCards.slice(2, 6));
+      continue;
+    }
+    const bot = room.players.find((player) => isBot(player) && player.seat === room.hand?.actingSeat);
+    if (!bot) break;
+    const legal = getLegalActions(bot, room.hand, room.settings);
+    const action = chooseBotAction(bot, legal);
+    room.hand = applyAction(room.players, room.hand, room.settings, bot.userId, action.type, action.amount);
+    finalizeHandIfNeeded(room);
+  }
+  touch(room);
+  return room;
+}
+
+function chooseBotAction(player: GamePlayer, legal: ReturnType<typeof getLegalActions>): { type: string; amount?: number } {
+  if (legal.callAmount > 0) {
+    if (legal.callAmount >= Math.max(player.stack, player.stack + player.currentBet) * 0.45) return { type: "fold" };
+    return { type: "call" };
+  }
+  if (legal.canCheck) return { type: "check" };
+  if (legal.minBet > 0 && player.stack > legal.minBet * 4) return { type: "bet", amount: legal.minBet };
+  return { type: "all-in" };
+}
+
+function finalizeHandIfNeeded(room: GameRoom): void {
+  if (!room.hand || room.hand.winners.length === 0 || room.status === "HAND_COMPLETE") return;
+  room.status = "HAND_COMPLETE";
+  database.users.forEach((storedUser) => {
+    if (room.players.some((player) => player.userId === storedUser.id)) storedUser.stats.handsPlayed += 1;
+    if (room.hand?.winners.some((winner) => winner.userId === storedUser.id)) storedUser.stats.handsWon += 1;
+  });
+}
+
+function isBot(player: GamePlayer): boolean {
+  return player.userId.startsWith(botPrefix);
 }
 
 function clampInt(value: number, min: number, max: number): number {

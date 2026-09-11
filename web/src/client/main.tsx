@@ -157,6 +157,7 @@ function LobbyScreen({ lobby, api, onLobby, onRoom }: { lobby: Lobby | null; api
 }
 
 function GameRow({ game, api, userId, refresh, onRoom }: { game: ClientRoomView; api: Api; userId: string; refresh: () => Promise<void>; onRoom: (room: ClientRoomView) => void }) {
+  const [editing, setEditing] = useState(false);
   const isHost = game.hostUserId === userId;
   async function leaveGame() {
     await api.post(`/api/rooms/${game.id}/leave`, {});
@@ -174,8 +175,9 @@ function GameRow({ game, api, userId, refresh, onRoom }: { game: ClientRoomView;
       </button>
       <div className="gameActions">
         <button onClick={leaveGame}>Leave</button>
-        {isHost && <button className="danger" onClick={deleteGame}>Delete</button>}
+        {isHost && <button className="smallAction" onClick={() => setEditing(!editing)}>{editing ? "Done" : "Edit"}</button>}
       </div>
+      {isHost && editing && <div className="editActions"><span>Host tools</span><button className="danger" onClick={deleteGame}>Delete Game</button></div>}
     </div>
   );
 }
@@ -206,6 +208,7 @@ function RoomScreen({ room, api, lobby, muted, setMuted, musicOn, setMusicOn, on
   const legal = room.hand && me?.seat === room.hand.actingSeat ? getClientLegal(room, me.userId) : null;
   const inviteUrl = `${location.origin}/join/${room.inviteToken}`;
   const [copyStatus, setCopyStatus] = useState("");
+  const [manageOpen, setManageOpen] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const isHost = room.hostUserId === hero?.id;
   async function toggleMusic() {
@@ -252,7 +255,7 @@ function RoomScreen({ room, api, lobby, muted, setMuted, musicOn, setMusicOn, on
   return (
     <section className="room">
       <audio ref={audioRef} src="/audio/lofi%201.aif" loop preload="auto" />
-      <header className="roomTop"><button onClick={onBack}>Lobby</button><h1>TEXOMAHA TABLE</h1><div className="roomTools"><button onClick={() => { const next = !muted; setMuted(next); localStorage.setItem("texomaha_muted", String(next)); }}>{muted ? "SFX Off" : "SFX On"}</button><button onClick={toggleMusic}>{musicOn ? "Music On" : "Music Off"}</button><button onClick={copyInvite}>Copy Game Link</button><button onClick={leaveCurrentGame}>Leave</button>{isHost && <button className="danger" onClick={deleteCurrentGame}>Delete</button>}</div></header>
+      <header className="roomTop"><button onClick={onBack}>Lobby</button><h1>TEXOMAHA TABLE</h1><div className="roomTools"><button onClick={() => { const next = !muted; setMuted(next); localStorage.setItem("texomaha_muted", String(next)); }}>{muted ? "SFX Off" : "SFX On"}</button><button onClick={toggleMusic}>{musicOn ? "Music On" : "Music Off"}</button><button onClick={copyInvite}>Copy Game Link</button><button onClick={leaveCurrentGame}>Leave</button>{isHost && <button onClick={() => setManageOpen(!manageOpen)}>{manageOpen ? "Done" : "Manage"}</button>}{isHost && manageOpen && <button className="danger" onClick={deleteCurrentGame}>Delete Game</button>}</div></header>
       {copyStatus && <div className="copyStatus">{copyStatus}</div>}
       {room.status === "WAITING" ? (
         <WaitingRoom room={room} api={api} lobby={lobby} onRoom={onRoom} inviteUrl={inviteUrl} onCopyInvite={copyInvite} />
@@ -264,7 +267,8 @@ function RoomScreen({ room, api, lobby, muted, setMuted, musicOn, setMusicOn, on
 }
 
 function WaitingRoom({ room, api, lobby, onRoom, inviteUrl, onCopyInvite }: { room: ClientRoomView; api: Api; lobby: Lobby | null; onRoom: (room: ClientRoomView) => void; inviteUrl: string; onCopyInvite: () => void }) {
-  return <div className="waiting panel"><h2>Waiting for your friends to join...</h2><div className="inviteBox"><span>Invite link</span><input readOnly value={inviteUrl} onFocus={(event) => event.currentTarget.select()} /></div><div className="seated">{room.players.map((player) => <div className="seatCard" key={player.userId}><div className="avatar">{player.avatar}</div><strong>{player.username}</strong><span>Ready</span></div>)}</div><div className="actions"><button onClick={onCopyInvite}>Copy Invite Link</button><button className="primary" disabled={room.players.length < 2} onClick={async () => onRoom(await api.post(`/api/rooms/${room.id}/start`, {}))}>Start Game</button></div><div className="friendInvite">{lobby?.friends.map((friend) => <button key={friend.id} onClick={onCopyInvite}>Invite {friend.username}</button>)}</div></div>;
+  const isHost = room.hostUserId === lobby?.user.id;
+  return <div className="waiting panel"><h2>Waiting for your friends to join...</h2><div className="inviteBox"><span>Invite link</span><input readOnly value={inviteUrl} onFocus={(event) => event.currentTarget.select()} /></div><div className="seated">{room.players.map((player) => <div className="seatCard" key={player.userId}><div className="avatar">{player.avatar}</div><strong>{player.username}</strong><span>{player.userId.startsWith("bot:") ? "Bot" : "Ready"}</span></div>)}</div><div className="actions"><button onClick={onCopyInvite}>Copy Invite Link</button>{isHost && <button disabled={room.players.length >= room.settings.maxPlayers} onClick={async () => onRoom(await api.post(`/api/rooms/${room.id}/add-bot`, {}))}>Add Bot</button>}<button className="primary" disabled={room.players.length < 2} onClick={async () => onRoom(await api.post(`/api/rooms/${room.id}/start`, {}))}>Start Game</button></div><div className="friendInvite">{lobby?.friends.map((friend) => <button key={friend.id} onClick={onCopyInvite}>Invite {friend.username}</button>)}</div></div>;
 }
 
 function PokerTable({ room, heroId, legal, muted, api, onRoom }: { room: ClientRoomView; heroId: string; legal: LegalActions | null; muted: boolean; api: Api; onRoom: (room: ClientRoomView) => void }) {
